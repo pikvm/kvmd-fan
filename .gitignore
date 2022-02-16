@@ -1,0 +1,8 @@
+/linters/.tox/
+/build/
+/kvmd-fan
+/config.mk
+vgcore.*
+*.pkg.tar.xz
+*.pkg.tar.zst
+*.tar.gz
