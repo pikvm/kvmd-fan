@@ -9,11 +9,8 @@ depends=(
 	libgpiod
 	wiringpi
 )
-source=(
-	${pkgname}::"git+https://github.com/pikvm/kvmd-fan#commit=v${pkgver}"
-	$pkgname.service
-)
-md5sums=(SKIP SKIP)
+source=(${pkgname}::"git+https://github.com/pikvm/kvmd-fan#commit=v${pkgver}")
+md5sums=(SKIP)
 
 
 build() {
