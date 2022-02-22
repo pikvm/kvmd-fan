@@ -283,10 +283,21 @@ static int _loop(void) {
 			changed = true;
 		}
 
+		int rpm = 0;
+		if (_g_hall_pin >= 0) {
+			rpm = fan_get_hall_rpm(_g_fan);
+			if (rpm < 0) {
+				LOG_ERROR("loop", "Hall sensor failure");
+				goto error;
+			}
+			if (speed > 0 && rpm == 0) {
+				LOG_ERROR("loop", "!!! Fan is not spinning !!!");
+			}
+		}
+
 #		define SAY(_log, _prefix) \
 			_log("loop", _prefix " [%s] temp=%.2f°C, speed=%.2f%% (pwm=%u), rpm=%d", \
 				mode, temp, prev_speed, prev_pwm, rpm);
-		int rpm = fan_get_hall_rpm(_g_fan);
 		if (changed) {
 			SAY(LOG_VERBOSE, "Changed:");
 		} else {
