@@ -290,7 +290,7 @@ static int _loop(void) {
 				LOG_ERROR("loop", "Hall sensor failure");
 				goto error;
 			}
-			if (speed > 0 && rpm == 0) {
+			if (prev_speed > 0 && rpm == 0) {
 				LOG_ERROR("loop", "!!! Fan is not spinning !!!");
 			}
 		}
