@@ -100,7 +100,7 @@ static int _g_pwm_pin = 12;
 static int _g_pwm_start = 0;
 static int _g_hall_pin = -1;
 
-static float _g_temp_hyst = 1;
+static float _g_temp_hyst = 3;
 static float _g_temp_low = 45;
 static float _g_temp_high = 75;
 
