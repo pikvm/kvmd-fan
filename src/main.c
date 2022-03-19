@@ -24,16 +24,20 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdatomic.h>
+#include <limits.h>
 #include <unistd.h>
 #include <signal.h>
 #include <getopt.h>
 #include <errno.h>
 #include <assert.h>
 
+#include <sys/stat.h>
+
 #include "config.h"
 #include "logging.h"
 #include "temp.h"
 #include "fan.h"
+#include "server.h"
 
 
 enum _OPT_VALUES {
@@ -56,6 +60,10 @@ enum _OPT_VALUES {
 	_O_SPEED_HEAT,
 	_O_SPEED_SPIN_UP,
 
+	_O_SOCK,
+	_O_SOCK_RM,
+	_O_SOCK_MODE,
+
 	_O_VERBOSE,
 	_O_DEBUG,
 };
@@ -76,6 +84,10 @@ static const struct option _LONG_OPTS[] = {
 	{"speed-heat",		required_argument,	NULL,	_O_SPEED_HEAT},
 	{"speed-spin-up",	required_argument,	NULL,	_O_SPEED_SPIN_UP},
 
+	{"sock",			required_argument,	NULL,	_O_SOCK},
+	{"sock-rm",			no_argument,		NULL,	_O_SOCK_RM},
+	{"sock-mode",		required_argument,	NULL,	_O_SOCK_MODE},
+
 	{"interval",		required_argument,	NULL,	_O_INTERVAL},
 
 	{"verbose",			no_argument,		NULL,	_O_VERBOSE},
@@ -94,7 +106,9 @@ static const struct option _LONG_OPTS[] = {
 };
 
 static atomic_bool _g_stop = ATOMIC_VAR_INIT(false);
+
 static fan_s *_g_fan = NULL;
+static server_s *_g_server = NULL;
 
 static int _g_pwm_pin = 12;
 static int _g_pwm_start = 0;
@@ -124,8 +138,8 @@ int main(int argc, char *argv[]) {
 	int retval = 0;
 	LOGGING_INIT;
 
-#	define OPT_NUMBER(_name, _dest, _min, _max) { \
-			errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, 0); \
+#	define OPT_NUMBER_BASE(_name, _dest, _min, _max, _base) { \
+			errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, _base); \
 			if (errno || *_end || _tmp < _min || _tmp > _max) { \
 				printf("Invalid value for '%s=%s': min=%d, max=%d\n", _name, optarg, (int)_min, (int)_max); \
 				goto end_error; \
@@ -133,6 +147,12 @@ int main(int argc, char *argv[]) {
 			_dest = _tmp; \
 			break; \
 		}
+
+#	define OPT_NUMBER(_name, _dest, _min, _max) OPT_NUMBER_BASE(_name, _dest, _min, _max, 0)
+
+	char *sock_path = "";
+	bool sock_rm = false;
+	mode_t sock_mode = 0;
 
 	for (int ch; (ch = getopt_long(argc, argv, _SHORT_OPTS, _LONG_OPTS, NULL)) >= 0;) {
 		switch (ch) {
@@ -150,6 +170,10 @@ int main(int argc, char *argv[]) {
 			case _O_SPEED_HEAT:		OPT_NUMBER("--speed-heat",		_g_speed_heat,		0, 100);
 			case _O_SPEED_SPIN_UP:	OPT_NUMBER("--speed-spin-up",	_g_speed_spin_up,	0, 100);
 
+			case _O_SOCK:			sock_path = optarg; break;
+			case _O_SOCK_RM:		sock_rm = true; break;
+			case _O_SOCK_MODE:		OPT_NUMBER_BASE("--sock-mode", sock_mode, INT_MIN, INT_MAX, 8);
+
 			case _O_INTERVAL:		OPT_NUMBER("--interval",		_g_interval,		1, 10);
 
 			case _O_VERBOSE:		log_level = LOG_LEVEL_VERBOSE; break;
@@ -164,6 +188,7 @@ int main(int argc, char *argv[]) {
 	}
 
 #	undef OPT_NUMBER
+#	undef OPT_NUMBER_BASE
 
 	if (!(
 		0 <= _g_temp_hyst
@@ -192,6 +217,12 @@ int main(int argc, char *argv[]) {
 		goto end_error;
 	}
 
+	if (sock_path[0] != '\0') {
+		if ((_g_server = server_init((_g_hall_pin >= 0), sock_path, sock_rm, sock_mode, 10)) == NULL) {
+			goto end_error;
+		}
+	}
+
 	if (_loop() < 0) {
 		goto end_error;
 	}
@@ -200,6 +231,9 @@ int main(int argc, char *argv[]) {
 	end_error:
 		retval = 1;
 	end_ok:
+		if (_g_server) {
+			server_destroy(_g_server);
+		}
 		if (_g_fan) {
 			fan_destroy(_g_fan);
 		}
@@ -245,6 +279,7 @@ static int _loop(void) {
 	float prev_speed = -1;
 	unsigned prev_pwm = 0;
 	char *mode = "???";
+	bool fan_ok = true;
 
 	while (!atomic_load(&_g_stop)) {
 		float temp = 0;
@@ -291,10 +326,21 @@ static int _loop(void) {
 				goto error;
 			}
 			if (prev_speed > 0 && rpm == 0) {
-				LOG_ERROR("loop", "!!! Fan is not spinning !!!");
+				if (fan_ok) {
+					LOG_ERROR("loop", "!!! Fan is not spinning !!!");
+					fan_ok = false;
+				}
+			} else {
+				if (!fan_ok) {
+					LOG_INFO("loop", "+++ Fan is spinning again +++");
+					fan_ok = true;
+				}
 			}
 		}
 
+		if (_g_server) {
+			server_set_state(_g_server, temp, prev_speed, prev_pwm, rpm, fan_ok);
+		}
 #		define SAY(_log, _prefix) \
 			_log("loop", _prefix " [%s] temp=%.2f°C, speed=%.2f%% (pwm=%u), rpm=%d", \
 				mode, temp, prev_speed, prev_pwm, rpm);
@@ -341,6 +387,11 @@ static void _help(void) {
 	SAY("    --speed-heat <N>  ──── Fan speed on overheating. Default: %.2f%%.\n", _g_speed_heat);
 	SAY("    --speed-spin-up <N>  ─ Fan speed for spin-up. Default: %.2f%%.\n", _g_speed_spin_up);
 	SAY("    -i|--interval <sec>  ─ Iterations delay. Default: %.2f.\n", _g_interval);
+	SAY("Socket options:");
+	SAY("═══════════════");
+	SAY("    --sock <path> ─────── Path to UNIX socket for the /state request. Default: disabled.\n");
+	SAY("    --sock-rm  ────────── Try to remove old UNIX socket file before binding. Default: disabled.\n");
+	SAY("    --sock-mode <mode>  ─ Set UNIX socket file permissions (like 777). Default: disabled.\n");
 	SAY("Logging options:");
 	SAY("════════════════");
 	SAY("    --verbose  ─ Enable verbose messages. Default: disabled.\n");

@@ -34,8 +34,10 @@
 
 
 #define INLINE inline __attribute__((always_inline))
+#define UNUSED __attribute__((unused))
 
-#define A_CALLOC(_dest, _nmemb) assert((_dest = calloc(_nmemb, sizeof(*(_dest)))))
+#define A_CALLOC(_dest, _nmemb)			assert((_dest = calloc(_nmemb, sizeof(*(_dest)))))
+#define A_ASPRINTF(_dest, _fmt, ...)	assert(asprintf(&(_dest), _fmt, ##__VA_ARGS__) >= 0)
 
 #define ARRAY_LEN(_array) (sizeof(_array) / sizeof(_array[0]))
 

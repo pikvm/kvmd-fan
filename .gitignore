@@ -3,6 +3,7 @@
 /kvmd-fan
 /config.mk
 vgcore.*
+*.sock
 *.pkg.tar.xz
 *.pkg.tar.zst
 *.tar.gz
