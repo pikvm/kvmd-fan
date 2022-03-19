@@ -60,9 +60,9 @@ enum _OPT_VALUES {
 	_O_SPEED_HEAT,
 	_O_SPEED_SPIN_UP,
 
-	_O_SOCK,
-	_O_SOCK_RM,
-	_O_SOCK_MODE,
+	_O_UNIX,
+	_O_UNIX_RM,
+	_O_UNIX_MODE,
 
 	_O_VERBOSE,
 	_O_DEBUG,
@@ -84,9 +84,9 @@ static const struct option _LONG_OPTS[] = {
 	{"speed-heat",		required_argument,	NULL,	_O_SPEED_HEAT},
 	{"speed-spin-up",	required_argument,	NULL,	_O_SPEED_SPIN_UP},
 
-	{"sock",			required_argument,	NULL,	_O_SOCK},
-	{"sock-rm",			no_argument,		NULL,	_O_SOCK_RM},
-	{"sock-mode",		required_argument,	NULL,	_O_SOCK_MODE},
+	{"unix",			required_argument,	NULL,	_O_UNIX},
+	{"unix-rm",			no_argument,		NULL,	_O_UNIX_RM},
+	{"unix-mode",		required_argument,	NULL,	_O_UNIX_MODE},
 
 	{"interval",		required_argument,	NULL,	_O_INTERVAL},
 
@@ -150,9 +150,9 @@ int main(int argc, char *argv[]) {
 
 #	define OPT_NUMBER(_name, _dest, _min, _max) OPT_NUMBER_BASE(_name, _dest, _min, _max, 0)
 
-	char *sock_path = "";
-	bool sock_rm = false;
-	mode_t sock_mode = 0;
+	char *unix_path = "";
+	bool unix_rm = false;
+	mode_t unix_mode = 0;
 
 	for (int ch; (ch = getopt_long(argc, argv, _SHORT_OPTS, _LONG_OPTS, NULL)) >= 0;) {
 		switch (ch) {
@@ -170,9 +170,9 @@ int main(int argc, char *argv[]) {
 			case _O_SPEED_HEAT:		OPT_NUMBER("--speed-heat",		_g_speed_heat,		0, 100);
 			case _O_SPEED_SPIN_UP:	OPT_NUMBER("--speed-spin-up",	_g_speed_spin_up,	0, 100);
 
-			case _O_SOCK:			sock_path = optarg; break;
-			case _O_SOCK_RM:		sock_rm = true; break;
-			case _O_SOCK_MODE:		OPT_NUMBER_BASE("--sock-mode", sock_mode, INT_MIN, INT_MAX, 8);
+			case _O_UNIX:			unix_path = optarg; break;
+			case _O_UNIX_RM:		unix_rm = true; break;
+			case _O_UNIX_MODE:		OPT_NUMBER_BASE("--unix-mode", unix_mode, INT_MIN, INT_MAX, 8);
 
 			case _O_INTERVAL:		OPT_NUMBER("--interval",		_g_interval,		1, 10);
 
@@ -217,8 +217,8 @@ int main(int argc, char *argv[]) {
 		goto end_error;
 	}
 
-	if (sock_path[0] != '\0') {
-		if ((_g_server = server_init((_g_hall_pin >= 0), sock_path, sock_rm, sock_mode, 10)) == NULL) {
+	if (unix_path[0] != '\0') {
+		if ((_g_server = server_init((_g_hall_pin >= 0), unix_path, unix_rm, unix_mode, 10)) == NULL) {
 			goto end_error;
 		}
 	}
@@ -387,11 +387,11 @@ static void _help(void) {
 	SAY("    --speed-heat <N>  ──── Fan speed on overheating. Default: %.2f%%.\n", _g_speed_heat);
 	SAY("    --speed-spin-up <N>  ─ Fan speed for spin-up. Default: %.2f%%.\n", _g_speed_spin_up);
 	SAY("    -i|--interval <sec>  ─ Iterations delay. Default: %.2f.\n", _g_interval);
-	SAY("Socket options:");
-	SAY("═══════════════");
-	SAY("    --sock <path> ─────── Path to UNIX socket for the /state request. Default: disabled.\n");
-	SAY("    --sock-rm  ────────── Try to remove old UNIX socket file before binding. Default: disabled.\n");
-	SAY("    --sock-mode <mode>  ─ Set UNIX socket file permissions (like 777). Default: disabled.\n");
+	SAY("HTTP server options:");
+	SAY("════════════════════");
+	SAY("    --unix <path> ─────── Path to UNIX socket for the /state request. Default: disabled.\n");
+	SAY("    --unix-rm  ────────── Try to remove old UNIX socket file before binding. Default: disabled.\n");
+	SAY("    --unix-mode <mode>  ─ Set UNIX socket file permissions (like 777). Default: disabled.\n");
 	SAY("Logging options:");
 	SAY("════════════════");
 	SAY("    --verbose  ─ Enable verbose messages. Default: disabled.\n");
