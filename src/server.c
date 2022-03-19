@@ -152,7 +152,7 @@ static enum MHD_Result _mhd_handler(void *v_server, struct MHD_Connection *conn,
 		content_type = "application/json";
 		A_MUTEX_LOCK(&server->s_mutex);
 		A_ASPRINTF(page,
-			"{\"ok\": true, \"result\": {\"temp\": %.2f,"
+			"{\"ok\": true, \"result\": {\"temp\": {\"cpu\": %.2f},"
 			" \"fan\": {\"speed\": %.2f, \"pwm\": %u, \"ok\": %s},"
 			" \"hall\": {\"available\": %s, \"rpm\": %u}}}\n",
 			server->s_temp,
