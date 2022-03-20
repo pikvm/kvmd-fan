@@ -31,7 +31,7 @@ static enum MHD_Result _mhd_handler(void *v_server, struct MHD_Connection *conn,
 	UNUSED void **ctx);
 
 
-server_s *server_init(bool has_hall, const char *path, bool rm, mode_t mode, unsigned timeout) {
+server_s *server_init(bool has_hall, const char *path, bool rm, mode_t mode) {
 	server_s *server;
 	A_CALLOC(server, 1);
 	A_MUTEX_INIT(&server->s_mutex);
@@ -80,7 +80,7 @@ server_s *server_init(bool has_hall, const char *path, bool rm, mode_t mode, uns
 		0, NULL, NULL,
 		_mhd_handler, server,
 		MHD_OPTION_LISTEN_SOCKET, server->fd,
-		MHD_OPTION_CONNECTION_TIMEOUT, timeout,
+		MHD_OPTION_CONNECTION_TIMEOUT, 10,
 		MHD_OPTION_EXTERNAL_LOGGER, _mhd_log, NULL,
 		MHD_OPTION_END);
 	if (server->mhd == NULL) {

@@ -54,7 +54,7 @@ typedef struct {
 } server_s;
 
 
-server_s *server_init(bool has_hall, const char *path, bool rm, mode_t mode, unsigned timeout);
+server_s *server_init(bool has_hall, const char *path, bool rm, mode_t mode);
 void server_destroy(server_s *server);
 
 void server_set_state(server_s *server, float temp, float speed, unsigned pwm, unsigned rpm, bool ok);

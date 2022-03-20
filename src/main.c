@@ -218,7 +218,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (unix_path[0] != '\0') {
-		if ((_g_server = server_init((_g_hall_pin >= 0), unix_path, unix_rm, unix_mode, 10)) == NULL) {
+		if ((_g_server = server_init((_g_hall_pin >= 0), unix_path, unix_rm, unix_mode)) == NULL) {
 			goto end_error;
 		}
 	}
