@@ -23,12 +23,12 @@
 #include "server.h"
 
 
-static void _mhd_log(void *ctx, const char *fmt, va_list args);
+static void _mhd_log(UNUSED void *ctx, const char *fmt, va_list args);
 
 static enum MHD_Result _mhd_handler(void *v_server, struct MHD_Connection *conn,
-	const char *url, const char *method, const char *version,
-	const char *upload, size_t *upload_size,
-	void **ptr);
+	const char *url, const char *method, UNUSED const char *version,
+	UNUSED const char *upload_data, size_t *upload_data_size,  // cppcheck-suppress constParameter
+	UNUSED void **ctx);
 
 
 server_s *server_init(bool has_hall, const char *path, bool rm, mode_t mode, unsigned timeout) {
@@ -128,7 +128,7 @@ static void _mhd_log(UNUSED void *ctx, const char *fmt, va_list args) {
 static enum MHD_Result _mhd_handler(void *v_server, struct MHD_Connection *conn,
 	const char *url, const char *method, UNUSED const char *version,
 	UNUSED const char *upload_data, size_t *upload_data_size,  // cppcheck-suppress constParameter
-	UNUSED void **conn_ctx) {
+	UNUSED void **ctx) {
 
 	server_s *server = (server_s *)v_server;
 
