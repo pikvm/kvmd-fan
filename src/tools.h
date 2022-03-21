@@ -25,12 +25,22 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <limits.h>
 #include <locale.h>
 #include <math.h>
 #include <time.h>
 #include <assert.h>
 
 #include <pthread.h>
+
+
+#ifdef NDEBUG
+#	error WTF dude? Asserts are good things!
+#endif
+
+#if CHAR_BIT != 8
+#	error There are not 8 bits in a char!
+#endif
 
 
 #define INLINE inline __attribute__((always_inline))
