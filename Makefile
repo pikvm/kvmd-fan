@@ -7,7 +7,7 @@ LDFLAGS ?=
 
 _APP = kvmd-fan
 _CFLAGS = -MD -c -std=c11 -Wall -Wextra -D_GNU_SOURCE
-_LDFLAGS = $(LDFLAGS) -lm -lpthread -lmicrohttpd -lgpiod -lwiringPi
+_LDFLAGS = $(LDFLAGS) -lm -lpthread -liniparser -lmicrohttpd -lgpiod -lwiringPi
 _SRCS = $(shell ls src/*.c)
 _BUILD = build
 
@@ -82,6 +82,10 @@ push:
 
 clean:
 	rm -rf $(_APP) $(_BUILD) *.sock
+
+
+clean-all: clean
+	sudo rm -rf linters/.tox
 
 
 _OBJS = $(_SRCS:%.c=$(_BUILD)/%.o)

@@ -6,6 +6,7 @@ url="https://github.com/pikvm/kvmd-fan"
 license=(GPL)
 arch=(armv6h armv7h aarch64)
 depends=(
+	iniparser
 	libmicrohttpd
 	libgpiod
 	wiringpi

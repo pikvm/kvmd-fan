@@ -33,6 +33,8 @@
 
 #include <sys/stat.h>
 
+#include <iniparser.h>
+
 #include "config.h"
 #include "logging.h"
 #include "temp.h"
@@ -64,11 +66,14 @@ enum _OPT_VALUES {
 	_O_UNIX_RM,
 	_O_UNIX_MODE,
 
+	_O_CONFIG,
+
 	_O_VERBOSE,
 	_O_DEBUG,
 };
 
-static const char *const _SHORT_OPTS = "hvi";
+
+static const char *const _SHORT_OPTS = "hvic";
 static const struct option _LONG_OPTS[] = {
 	{"pwm-pin",			required_argument,	NULL,	_O_PWM_PIN},
 	{"pwm-start",		required_argument,	NULL,	_O_PWM_START},
@@ -96,6 +101,8 @@ static const struct option _LONG_OPTS[] = {
 	{"help",			no_argument,		NULL,	_O_HELP},
 	{"version",			no_argument,		NULL,	_O_VERSION},
 
+	{"config",			required_argument,	NULL,	_O_CONFIG},
+
 	// Compat with version 0.x
 	{"temp-min",		required_argument,	NULL,	_O_TEMP_LOW},
 	{"temp-max",		required_argument,	NULL,	_O_TEMP_HIGH},
@@ -106,7 +113,6 @@ static const struct option _LONG_OPTS[] = {
 };
 
 static atomic_bool _g_stop = ATOMIC_VAR_INIT(false);
-
 static fan_s *_g_fan = NULL;
 static server_s *_g_server = NULL;
 
@@ -126,10 +132,18 @@ static float _g_speed_spin_up = 75;
 
 static float _g_interval = 1;
 
+static char *_g_unix_path = NULL;
+static bool _g_unix_rm = false;
+static mode_t _g_unix_mode = 0;
+
+
+static int _load_ini(const char *path);
 
 static void _signal_handler(int signum);
 static void _install_signal_handlers(void);
+
 static void _stoppable_sleep(unsigned delay);
+
 static int _loop(void);
 static void _help(void);
 
@@ -137,22 +151,19 @@ static void _help(void);
 int main(int argc, char *argv[]) {
 	int retval = 0;
 	LOGGING_INIT;
+	assert(_g_unix_path = strdup(""));
 
-#	define OPT_NUMBER_BASE(_name, _dest, _min, _max, _base) { \
+#define OPT_NUMBER_BASE(_name, _dest, _min, _max, _base) { \
 			errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, _base); \
 			if (errno || *_end || _tmp < _min || _tmp > _max) { \
 				printf("Invalid value for '%s=%s': min=%d, max=%d\n", _name, optarg, (int)_min, (int)_max); \
-				goto end_error; \
+				goto error; \
 			} \
 			_dest = _tmp; \
 			break; \
 		}
 
 #	define OPT_NUMBER(_name, _dest, _min, _max) OPT_NUMBER_BASE(_name, _dest, _min, _max, 0)
-
-	char *unix_path = "";
-	bool unix_rm = false;
-	mode_t unix_mode = 0;
 
 	for (int ch; (ch = getopt_long(argc, argv, _SHORT_OPTS, _LONG_OPTS, NULL)) >= 0;) {
 		switch (ch) {
@@ -170,20 +181,22 @@ int main(int argc, char *argv[]) {
 			case _O_SPEED_HEAT:		OPT_NUMBER("--speed-heat",		_g_speed_heat,		0, 100);
 			case _O_SPEED_SPIN_UP:	OPT_NUMBER("--speed-spin-up",	_g_speed_spin_up,	0, 100);
 
-			case _O_UNIX:			unix_path = optarg; break;
-			case _O_UNIX_RM:		unix_rm = true; break;
-			case _O_UNIX_MODE:		OPT_NUMBER_BASE("--unix-mode", unix_mode, INT_MIN, INT_MAX, 8);
+			case _O_UNIX:			free(_g_unix_path); assert(_g_unix_path = strdup(optarg)); break;
+			case _O_UNIX_RM:		_g_unix_rm = true; break;
+			case _O_UNIX_MODE:		OPT_NUMBER_BASE("--unix-mode",	_g_unix_mode, INT_MIN, INT_MAX, 8);
 
 			case _O_INTERVAL:		OPT_NUMBER("--interval",		_g_interval,		1, 10);
+
+			case _O_CONFIG: 		if (_load_ini(optarg) < 0) { goto error; } break;
 
 			case _O_VERBOSE:		log_level = LOG_LEVEL_VERBOSE; break;
 			case _O_DEBUG:			log_level = LOG_LEVEL_DEBUG; break;
 
-			case _O_HELP:			_help(); goto end_ok;
-			case _O_VERSION:		puts(VERSION); goto end_ok;
+			case _O_HELP:			_help(); goto ok;
+			case _O_VERSION:		puts(VERSION); goto ok;
 
 			case 0: break;
-			default: goto end_error;
+			default: goto error;
 		}
 	}
 
@@ -196,8 +209,8 @@ int main(int argc, char *argv[]) {
 		&& _g_temp_low < _g_temp_high
 		&& _g_temp_high <= 85
 	)) {
-		puts("Invalid --temp-* config, should be: 0 <= hyst < low < high <= 85");
-		goto end_error;
+		puts("Invalid temp-* config, should be: 0 <= hyst < low < high <= 85");
+		goto error;
 	}
 
 	if (!(
@@ -207,37 +220,103 @@ int main(int argc, char *argv[]) {
 		&& _g_speed_high <= _g_speed_heat
 		&& _g_speed_heat <= 100
 	)) {
-		puts("Invalid --speed-* config, should be: 0 <= idle <= low < high <= heat <= 100");
-		goto end_error;
+		puts("Invalid speed-* config, should be: 0 <= idle <= low < high <= heat <= 100");
+		goto error;
 	}
 
 	_install_signal_handlers();
 
 	if ((_g_fan = fan_init(_g_pwm_pin, _g_pwm_start, _g_hall_pin)) == NULL) {
-		goto end_error;
+		goto error;
 	}
 
-	if (unix_path[0] != '\0') {
-		if ((_g_server = server_init((_g_hall_pin >= 0), unix_path, unix_rm, unix_mode)) == NULL) {
-			goto end_error;
+	if (_g_unix_path[0] != '\0') {
+		if ((_g_server = server_init((_g_hall_pin >= 0), _g_unix_path, _g_unix_rm, _g_unix_mode)) == NULL) {
+			goto error;
 		}
 	}
 
 	if (_loop() < 0) {
-		goto end_error;
+		goto error;
 	}
 
-	goto end_ok;
-	end_error:
+	goto ok;
+	error:
 		retval = 1;
-	end_ok:
+	ok:
 		if (_g_server) {
 			server_destroy(_g_server);
 		}
 		if (_g_fan) {
 			fan_destroy(_g_fan);
 		}
+		free(_g_unix_path);
 		LOGGING_DESTROY;
+		return retval;
+}
+
+static int _load_ini(const char *path) {
+	dictionary *ini = NULL;
+	int retval = 0;
+
+	if (path[0] == '?') {
+		path += 1;
+		if (access(path, F_OK | R_OK) != 0) {
+			LOG_INFO("config", "Optional config is not available: %s", path);
+			goto ok;
+		}
+	}
+
+	LOG_INFO("config", "Reading config '%s' ...", path);
+	if ((ini = iniparser_load(path)) == NULL) {
+		goto error;
+	}
+
+#	define MATCH(_section, _option, _dest, _min, _max, _base) { \
+			const char *_value = iniparser_getstring(ini, _section ":" _option, NULL); \
+			if (_value != NULL) { \
+				errno = 0; char *_end = NULL; int _tmp = strtol(_value, &_end, _base); \
+				if (errno || *_end || _tmp < _min || _tmp > _max) { \
+					printf("%s: Invalid value for '%s/%s=%s': min=%d, max=%d\n", \
+						path, _section, _option, _value, (int)_min, (int)_max); \
+					goto error; \
+				} \
+				_dest = _tmp; \
+			} \
+		}
+
+	MATCH("main",		"pwm_pin",		_g_pwm_pin,			0, 256,		0)
+	MATCH("main",		"pwm_start",	_g_pwm_start,		1, 1024,	0)
+	MATCH("main",		"hall_pin",		_g_hall_pin,		-1, 256,	0)
+	MATCH("main",		"interval",		_g_interval,		1, 10,		0)
+	MATCH("temp",		"hyst",			_g_temp_hyst,		1, 5,		0)
+	MATCH("temp",		"low",			_g_temp_low,		0, 85,		0)
+	MATCH("temp",		"high",			_g_temp_high,		0, 85,		0)
+	MATCH("speed",		"idle",			_g_speed_idle,		0, 100,		0)
+	MATCH("speed",		"low",			_g_speed_low,		0, 100,		0)
+	MATCH("speed",		"high",			_g_speed_high,		0, 100,		0)
+	MATCH("speed",		"heat",			_g_speed_heat,		0, 100,		0)
+	MATCH("speed",		"spin_up",		_g_speed_spin_up,	0, 100,		0)
+	MATCH("server",		"unix_rm",		_g_unix_rm,			0, 1,		0)
+	MATCH("server",		"unix_mode",	_g_unix_mode,		INT_MIN, INT_MAX, 8)
+	MATCH("logging",	"level",		log_level,			LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
+	{
+		const char *value = iniparser_getstring(ini, "server:unix", NULL);
+		if (value != NULL) {
+			free(_g_unix_path);
+			assert(_g_unix_path = strdup(value));
+		}
+	}
+
+#	undef MATCH
+
+	goto ok;
+	error:
+		retval = -1;
+	ok:
+		if (ini) {
+			iniparser_freedict(ini);
+		}
 		return retval;
 }
 
@@ -392,6 +471,9 @@ static void _help(void) {
 	SAY("    --unix <path> ─────── Path to UNIX socket for the /state request. Default: disabled.\n");
 	SAY("    --unix-rm  ────────── Try to remove old UNIX socket file before binding. Default: disabled.\n");
 	SAY("    --unix-mode <mode>  ─ Set UNIX socket file permissions (like 777). Default: disabled.\n");
+	SAY("Config options:");
+	SAY("═══════════════");
+	SAY("    -c|--config <path>  ─ Path to the INI config file. Default: disabled.\n");
 	SAY("Logging options:");
 	SAY("════════════════");
 	SAY("    --verbose  ─ Enable verbose messages. Default: disabled.\n");
