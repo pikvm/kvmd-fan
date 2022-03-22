@@ -35,8 +35,10 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_start, int hall_pin) {
 	fan->pwm_start = pwm_start;
 
 	LOG_INFO("fan.pwm", "Using pin=%u for PWM with start=%u", pwm_pin, pwm_start);
+#	ifndef WITH_WIRINGPI_STUB
 	wiringPiSetupGpio();
 	pinMode(pwm_pin, PWM_OUTPUT);
+#	endif
 
 	atomic_init(&fan->run, false);
 	atomic_init(&fan->rpm, 0);
@@ -81,7 +83,9 @@ void fan_destroy(fan_s *fan) {
 
 unsigned fan_set_speed_percent(fan_s *fan, float speed) {
 	unsigned pwm = (speed == 0 ? 0 : roundf(remap(speed, 0, 100, fan->pwm_start, 1024)));
+#	ifndef WITH_WIRINGPI_STUB
 	pwmWrite(fan->pwm_pin, pwm);
+#	endif
 	return pwm;
 }
 

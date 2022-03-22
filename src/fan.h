@@ -29,7 +29,9 @@
 #include <math.h>
 
 #include <pthread.h>
-#include <wiringPi.h>
+#ifndef WITH_WIRINGPI_STUB
+#	include <wiringPi.h>
+#endif
 #include <gpiod.h>
 
 #include "config.h"

@@ -1,3 +1,5 @@
+-include config.mk
+
 DESTDIR ?=
 PREFIX ?= /usr/local
 
@@ -7,7 +9,7 @@ LDFLAGS ?=
 
 _APP = kvmd-fan
 _CFLAGS = -MD -c -std=c11 -Wall -Wextra -D_GNU_SOURCE
-_LDFLAGS = $(LDFLAGS) -lm -lpthread -liniparser -lmicrohttpd -lgpiod -lwiringPi
+_LDFLAGS = $(LDFLAGS) -lm -lpthread -liniparser -lmicrohttpd -lgpiod
 _SRCS = $(shell ls src/*.c)
 _BUILD = build
 
@@ -18,6 +20,13 @@ _LINTERS_IMAGE ?= kvmd-fan-linters
 define optbool
 $(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
 endef
+
+
+ifneq ($(call optbool,$(WITH_WIRINGPI_STUB)),)
+override _CFLAGS += -DWITH_WIRINGPI_STUB
+else
+override _LDFLAGS += -lwiringPi
+endif
 
 
 # =====
