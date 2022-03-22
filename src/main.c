@@ -45,6 +45,8 @@
 enum _OPT_VALUES {
 	_O_INTERVAL = 'i',
 
+	_O_CONFIG = 'c',
+
 	_O_HELP = 'h',
 	_O_VERSION = 'v',
 
@@ -66,14 +68,12 @@ enum _OPT_VALUES {
 	_O_UNIX_RM,
 	_O_UNIX_MODE,
 
-	_O_CONFIG,
-
 	_O_VERBOSE,
 	_O_DEBUG,
 };
 
 
-static const char *const _SHORT_OPTS = "hvic";
+static const char *const _SHORT_OPTS = "hvic:";
 static const struct option _LONG_OPTS[] = {
 	{"pwm-pin",			required_argument,	NULL,	_O_PWM_PIN},
 	{"pwm-start",		required_argument,	NULL,	_O_PWM_START},
