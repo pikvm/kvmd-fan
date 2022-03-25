@@ -46,6 +46,7 @@ typedef struct {
 	unsigned		s_pwm;
 	unsigned		s_rpm;
 	bool			s_ok;
+	long double		s_last_fail_ts;
 	pthread_mutex_t	s_mutex;
 
 	bool				has_hall;

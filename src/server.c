@@ -36,6 +36,7 @@ server_s *server_init(bool has_hall, const char *path, bool rm, mode_t mode) {
 	A_CALLOC(server, 1);
 	A_MUTEX_INIT(&server->s_mutex);
 	server->s_ok = true;
+	server->s_last_fail_ts = -1;
 	server->has_hall = has_hall;
 	server->fd = -1;
 
@@ -113,6 +114,9 @@ void server_set_state(server_s *server, float temp, float speed, unsigned pwm, u
 	server->s_speed = speed;
 	server->s_pwm = pwm;
 	server->s_rpm = rpm;
+	if (server->s_ok != ok) {
+		server->s_last_fail_ts = get_now_monotonic();
+	}
 	server->s_ok = ok;
 	A_MUTEX_UNLOCK(&server->s_mutex);
 }
@@ -152,13 +156,18 @@ static enum MHD_Result _mhd_handler(void *v_server, struct MHD_Connection *conn,
 		content_type = "application/json";
 		A_MUTEX_LOCK(&server->s_mutex);
 		A_ASPRINTF(page,
-			"{\"ok\": true, \"result\": {\"temp\": {\"cpu\": %.2f},"
-			" \"fan\": {\"speed\": %.2f, \"pwm\": %u, \"ok\": %s},"
-			" \"hall\": {\"available\": %s, \"rpm\": %u}}}\n",
+			"{\"ok\": true, \"result\": {"
+			" \"service\": {\"now_ts\": %.2Lf},"
+			" \"temp\": {\"cpu\": %.2f},"
+			" \"fan\": {\"speed\": %.2f, \"pwm\": %u, \"ok\": %s, \"last_fail_ts\": %.2Lf},"
+			" \"hall\": {\"available\": %s, \"rpm\": %u}"
+			"}}\n",
+			get_now_monotonic(),
 			server->s_temp,
 			server->s_speed,
 			server->s_pwm,
 			(server->s_ok ? "true" : "false"),
+			server->s_last_fail_ts,
 			(server->has_hall ? "true" : "false"),
 			server->s_rpm);
 		A_MUTEX_UNLOCK(&server->s_mutex);
