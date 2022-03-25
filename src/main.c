@@ -63,6 +63,7 @@ enum _OPT_VALUES {
 	_O_SPEED_HIGH,
 	_O_SPEED_HEAT,
 	_O_SPEED_SPIN_UP,
+	_O_SPEED_CONST,
 
 	_O_UNIX,
 	_O_UNIX_RM,
@@ -88,6 +89,7 @@ static const struct option _LONG_OPTS[] = {
 	{"speed-high",		required_argument,	NULL,	_O_SPEED_HIGH},
 	{"speed-heat",		required_argument,	NULL,	_O_SPEED_HEAT},
 	{"speed-spin-up",	required_argument,	NULL,	_O_SPEED_SPIN_UP},
+	{"speed-const",		required_argument,	NULL,	_O_SPEED_CONST},
 
 	{"unix",			required_argument,	NULL,	_O_UNIX},
 	{"unix-rm",			no_argument,		NULL,	_O_UNIX_RM},
@@ -129,6 +131,7 @@ static float _g_speed_low = 25;
 static float _g_speed_high = 75;
 static float _g_speed_heat = 100;
 static float _g_speed_spin_up = 75;
+static float _g_speed_const = -1;
 
 static float _g_interval = 1;
 
@@ -180,6 +183,7 @@ int main(int argc, char *argv[]) {
 			case _O_SPEED_HIGH:		OPT_NUMBER("--speed-high",		_g_speed_high,		0, 100);
 			case _O_SPEED_HEAT:		OPT_NUMBER("--speed-heat",		_g_speed_heat,		0, 100);
 			case _O_SPEED_SPIN_UP:	OPT_NUMBER("--speed-spin-up",	_g_speed_spin_up,	0, 100);
+			case _O_SPEED_CONST:	OPT_NUMBER("--speed-const",		_g_speed_const,		-1, 100);
 
 			case _O_UNIX:			free(_g_unix_path); assert(_g_unix_path = strdup(optarg)); break;
 			case _O_UNIX_RM:		_g_unix_rm = true; break;
@@ -297,6 +301,7 @@ static int _load_ini(const char *path) {
 	MATCH("speed",		"high",			_g_speed_high,		0, 100,		0)
 	MATCH("speed",		"heat",			_g_speed_heat,		0, 100,		0)
 	MATCH("speed",		"spin_up",		_g_speed_spin_up,	0, 100,		0)
+	MATCH("speed",		"const",		_g_speed_const,		-1, 100,	0)
 	MATCH("server",		"unix_rm",		_g_unix_rm,			0, 1,		0)
 	MATCH("server",		"unix_mode",	_g_unix_mode,		INT_MIN, INT_MAX, 8)
 	MATCH("logging",	"level",		log_level,			LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
@@ -367,22 +372,29 @@ static int _loop(void) {
 		}
 
 		bool changed = false;
-		if (fabsf(fabsf(prev_temp) - fabsf(temp)) >= _g_temp_hyst) {
-			LOG_VERBOSE("loop", "Significant temperature change: %.2f°C -> %.2f°C", prev_temp, temp);
-			changed = true;
+		if (_g_speed_const < 0) {
+			if (fabsf(fabsf(prev_temp) - fabsf(temp)) >= _g_temp_hyst) {
+				LOG_VERBOSE("loop", "Significant temperature change: %.2f°C -> %.2f°C", prev_temp, temp);
+				changed = true;
+			}
 		}
 
 		if (changed || prev_speed < 0) {
 			float speed;
-			if (temp < _g_temp_low) {
-				speed = _g_speed_idle;
-				mode = "--- IDLE ---";
-			} else if (temp > _g_temp_high) {
-				speed = _g_speed_heat;
-				mode = "!!! HEAT !!!";
+			if (_g_speed_const < 0) {
+				if (temp < _g_temp_low) {
+					speed = _g_speed_idle;
+					mode = "--- IDLE ---";
+				} else if (temp > _g_temp_high) {
+					speed = _g_speed_heat;
+					mode = "!!! HEAT !!!";
+				} else {
+					speed = remap(temp, _g_temp_low, _g_temp_high, _g_speed_low, _g_speed_high);
+					mode = "= IN-RANGE =";
+				}
 			} else {
-				speed = remap(temp, _g_temp_low, _g_temp_high, _g_speed_low, _g_speed_high);
-				mode = "= IN-RANGE =";
+				speed = _g_speed_const;
+				mode = "= CONST =";
 			}
 
 			if ((prev_speed < _g_speed_idle || prev_speed <= 0) && speed > 0) {
@@ -465,6 +477,7 @@ static void _help(void) {
 	SAY("    --speed-high <N>  ──── Upper fan speed range limit. Default: %.2f%%.\n", _g_speed_high);
 	SAY("    --speed-heat <N>  ──── Fan speed on overheating. Default: %.2f%%.\n", _g_speed_heat);
 	SAY("    --speed-spin-up <N>  ─ Fan speed for spin-up. Default: %.2f%%.\n", _g_speed_spin_up);
+	SAY("    --speed-const <N>  ─── Override the entire logic and set the constant speed. Default: disabled.\n");
 	SAY("    -i|--interval <sec>  ─ Iterations delay. Default: %.2f.\n", _g_interval);
 	SAY("HTTP server options:");
 	SAY("════════════════════");
