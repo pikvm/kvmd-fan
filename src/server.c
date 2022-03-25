@@ -108,9 +108,10 @@ void server_destroy(server_s *server) {
 	free(server);
 }
 
-void server_set_state(server_s *server, float temp, float speed, unsigned pwm, unsigned rpm, bool ok) {
+void server_set_state(server_s *server, float temp_real, float temp_fixed, float speed, unsigned pwm, unsigned rpm, bool ok) {
 	A_MUTEX_LOCK(&server->s_mutex);
-	server->s_temp = temp;
+	server->s_temp_real = temp_real;
+	server->s_temp_fixed = temp_fixed;
 	server->s_speed = speed;
 	server->s_pwm = pwm;
 	server->s_rpm = rpm;
@@ -158,12 +159,13 @@ static enum MHD_Result _mhd_handler(void *v_server, struct MHD_Connection *conn,
 		A_ASPRINTF(page,
 			"{\"ok\": true, \"result\": {"
 			"\"service\": {\"now_ts\": %.2Lf},"
-			" \"temp\": {\"cpu\": %.2f},"
+			" \"temp\": {\"real\": %.2f, \"fixed\": %.2f},"
 			" \"fan\": {\"speed\": %.2f, \"pwm\": %u, \"ok\": %s, \"last_fail_ts\": %.2Lf},"
 			" \"hall\": {\"available\": %s, \"rpm\": %u}"
 			"}}\n",
 			get_now_monotonic(),
-			server->s_temp,
+			server->s_temp_real,
+			server->s_temp_fixed,
 			server->s_speed,
 			server->s_pwm,
 			(server->s_ok ? "true" : "false"),

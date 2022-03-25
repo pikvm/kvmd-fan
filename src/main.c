@@ -359,7 +359,7 @@ static int _loop(void) {
 
 	LOG_INFO("loop", "Starting the loop ...");
 
-	float prev_temp = 0;
+	float temp_fixed = 0;
 	float prev_speed = -1;
 	unsigned prev_pwm = 0;
 	char *mode = "???";
@@ -373,8 +373,8 @@ static int _loop(void) {
 
 		bool changed = false;
 		if (_g_speed_const < 0) {
-			if (fabsf(fabsf(prev_temp) - fabsf(temp)) >= _g_temp_hyst) {
-				LOG_VERBOSE("loop", "Significant temperature change: %.2f°C -> %.2f°C", prev_temp, temp);
+			if (fabsf(fabsf(temp_fixed) - fabsf(temp)) >= _g_temp_hyst) {
+				LOG_VERBOSE("loop", "Significant temperature change: %.2f°C -> %.2f°C", temp_fixed, temp);
 				changed = true;
 			}
 		}
@@ -404,7 +404,7 @@ static int _loop(void) {
 			}
 
 			prev_pwm = fan_set_speed_percent(_g_fan, speed);
-			prev_temp = temp;
+			temp_fixed = temp;
 			prev_speed = speed;
 			changed = true;
 		}
@@ -430,7 +430,7 @@ static int _loop(void) {
 		}
 
 		if (_g_server) {
-			server_set_state(_g_server, temp, prev_speed, prev_pwm, rpm, fan_ok);
+			server_set_state(_g_server, temp, temp_fixed, prev_speed, prev_pwm, rpm, fan_ok);
 		}
 #		define SAY(_log, _prefix) \
 			_log("loop", _prefix " [%s] temp=%.2f°C, speed=%.2f%% (pwm=%u), rpm=%d", \

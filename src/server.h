@@ -41,7 +41,8 @@
 
 
 typedef struct {
-	float			s_temp;
+	float			s_temp_real;
+	float			s_temp_fixed;
 	float			s_speed;
 	unsigned		s_pwm;
 	unsigned		s_rpm;
@@ -58,4 +59,4 @@ typedef struct {
 server_s *server_init(bool has_hall, const char *path, bool rm, mode_t mode);
 void server_destroy(server_s *server);
 
-void server_set_state(server_s *server, float temp, float speed, unsigned pwm, unsigned rpm, bool ok);
+void server_set_state(server_s *server, float temp_real, float temp_fixed, float speed, unsigned pwm, unsigned rpm, bool ok);
