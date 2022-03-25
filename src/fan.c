@@ -96,7 +96,7 @@ int fan_get_hall_rpm(fan_s *fan) {
 static void *_hall_thread(void *v_fan) {
 	fan_s *fan = (fan_s *)v_fan;
 	const struct timespec timeout = {0, 100000000};
-	long double next = get_now_monotonic() + 1;
+	long double next_ts = get_now_monotonic() + 1;
 	unsigned pulses = 0;
 
 	while (atomic_load(&fan->run)) {
@@ -114,11 +114,11 @@ static void *_hall_thread(void *v_fan) {
 			}
 		} // retval == 0 for zero new events
 
-		long double now = get_now_monotonic();
-		if (now > next) {
+		long double now_ts = get_now_monotonic();
+		if (now_ts > next_ts) {
 			atomic_store(&fan->rpm, pulses * 30);
 			pulses = 0;
-			next = now + 1;
+			next_ts = now_ts + 1;
 		} else {
 			pulses += retval;
 		}

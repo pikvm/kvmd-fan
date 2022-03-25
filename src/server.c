@@ -157,7 +157,7 @@ static enum MHD_Result _mhd_handler(void *v_server, struct MHD_Connection *conn,
 		A_MUTEX_LOCK(&server->s_mutex);
 		A_ASPRINTF(page,
 			"{\"ok\": true, \"result\": {"
-			" \"service\": {\"now_ts\": %.2Lf},"
+			"\"service\": {\"now_ts\": %.2Lf},"
 			" \"temp\": {\"cpu\": %.2f},"
 			" \"fan\": {\"speed\": %.2f, \"pwm\": %u, \"ok\": %s, \"last_fail_ts\": %.2Lf},"
 			" \"hall\": {\"available\": %s, \"rpm\": %u}"
