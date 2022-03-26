@@ -51,7 +51,8 @@ enum _OPT_VALUES {
 	_O_VERSION = 'v',
 
 	_O_PWM_PIN = 10000,
-	_O_PWM_START,
+	_O_PWM_LOW,
+	_O_PWM_HIGH,
 	_O_HALL_PIN,
 
 	_O_TEMP_HYST,
@@ -77,7 +78,8 @@ enum _OPT_VALUES {
 static const char *const _SHORT_OPTS = "hvic:";
 static const struct option _LONG_OPTS[] = {
 	{"pwm-pin",			required_argument,	NULL,	_O_PWM_PIN},
-	{"pwm-start",		required_argument,	NULL,	_O_PWM_START},
+	{"pwm-low",			required_argument,	NULL,	_O_PWM_LOW},
+	{"pwm-high",		required_argument,	NULL,	_O_PWM_HIGH},
 	{"hall-pin",		required_argument,	NULL,	_O_HALL_PIN},
 
 	{"temp-hyst",		required_argument,	NULL,	_O_TEMP_HYST},
@@ -119,7 +121,8 @@ static fan_s *_g_fan = NULL;
 static server_s *_g_server = NULL;
 
 static int _g_pwm_pin = 12;
-static int _g_pwm_start = 0;
+static int _g_pwm_low = 0;
+static int _g_pwm_high = 1024;
 static int _g_hall_pin = -1;
 
 static float _g_temp_hyst = 3;
@@ -171,7 +174,8 @@ int main(int argc, char *argv[]) {
 	for (int ch; (ch = getopt_long(argc, argv, _SHORT_OPTS, _LONG_OPTS, NULL)) >= 0;) {
 		switch (ch) {
 			case _O_PWM_PIN:		OPT_NUMBER("--pwm-pin",			_g_pwm_pin,			0, 256);
-			case _O_PWM_START:		OPT_NUMBER("--pwm-start",		_g_pwm_start,		1, 1024);
+			case _O_PWM_LOW:		OPT_NUMBER("--pwm-low",			_g_pwm_low,			0, 1024);
+			case _O_PWM_HIGH:		OPT_NUMBER("--pwm-high",		_g_pwm_high,		1, 1024);
 			case _O_HALL_PIN:		OPT_NUMBER("--hall-pin",		_g_hall_pin,		-1, 256);
 
 			case _O_TEMP_HYST:		OPT_NUMBER("--temp-hyst",		_g_temp_hyst,		1, 5);
@@ -207,6 +211,11 @@ int main(int argc, char *argv[]) {
 #	undef OPT_NUMBER
 #	undef OPT_NUMBER_BASE
 
+	if (_g_pwm_low >= _g_pwm_high) {
+		puts("Invalid PWM config, chould be: low < high");
+		goto error;
+	}
+
 	if (!(
 		0 <= _g_temp_hyst
 		&& _g_temp_hyst < _g_temp_low
@@ -230,7 +239,7 @@ int main(int argc, char *argv[]) {
 
 	_install_signal_handlers();
 
-	if ((_g_fan = fan_init(_g_pwm_pin, _g_pwm_start, _g_hall_pin)) == NULL) {
+	if ((_g_fan = fan_init(_g_pwm_pin, _g_pwm_low, _g_pwm_high, _g_hall_pin)) == NULL) {
 		goto error;
 	}
 
@@ -290,7 +299,8 @@ static int _load_ini(const char *path) {
 		}
 
 	MATCH("main",		"pwm_pin",		_g_pwm_pin,			0, 256,		0)
-	MATCH("main",		"pwm_start",	_g_pwm_start,		1, 1024,	0)
+	MATCH("main",		"pwm_low",		_g_pwm_low,			0, 1024,	0)
+	MATCH("main",		"pwm_high",		_g_pwm_high,		1, 1024,	0)
 	MATCH("main",		"hall_pin",		_g_hall_pin,		-1, 256,	0)
 	MATCH("main",		"interval",		_g_interval,		1, 10,		0)
 	MATCH("temp",		"hyst",			_g_temp_hyst,		1, 5,		0)
@@ -463,9 +473,9 @@ static void _help(void) {
 	SAY("Copyright (C) 2018-2022 Maxim Devaev <mdevaev@gmail.com>\n");
 	SAY("Hardware options:");
 	SAY("═════════════════");
-	SAY("    --pwm-pin <N>  ──── GPIO pin for PWM. Default: %d.\n", _g_pwm_pin);
-	SAY("    --pwm-start <N>  ── The minimum PWM level at which the fan");
-	SAY("                        starts to spinning (1-1024). Default: %d.\n", _g_pwm_start);
+	SAY("    --pwm-pin <N>  ── GPIO pin for PWM. Default: %d.\n", _g_pwm_pin);
+	SAY("    --pwm-low <N>  ── PWM low level. Default: %d.\n", _g_pwm_low);
+	SAY("    --pwm-high <N>  ─ PWM high level. Default: %d.\n", _g_pwm_high);
 	SAY("    --hall-pin <N>  ─── GPIO pin for the Hall sensor. Default: disabled.\n");
 	SAY("Fan control options:");
 	SAY("════════════════════");

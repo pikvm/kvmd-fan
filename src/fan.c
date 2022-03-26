@@ -26,15 +26,17 @@
 static void *_hall_thread(void *v_fan);
 
 
-fan_s *fan_init(unsigned pwm_pin, unsigned pwm_start, int hall_pin) {
-	assert(pwm_start <= 1024);
+fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, int hall_pin) {
+	assert(pwm_low < pwm_high);
+	assert(pwm_high <= 1024);
 
 	fan_s *fan;
 	A_CALLOC(fan, 1);
 	fan->pwm_pin = pwm_pin;
-	fan->pwm_start = pwm_start;
+	fan->pwm_low = pwm_low;
+	fan->pwm_high = pwm_high;
 
-	LOG_INFO("fan.pwm", "Using pin=%u for PWM with start=%u", pwm_pin, pwm_start);
+	LOG_INFO("fan.pwm", "Using pin=%u for PWM range %u...%u", pwm_pin, pwm_low, pwm_high);
 #	ifndef WITH_WIRINGPI_STUB
 	wiringPiSetupGpio();
 	pinMode(pwm_pin, PWM_OUTPUT);
@@ -82,7 +84,14 @@ void fan_destroy(fan_s *fan) {
 }
 
 unsigned fan_set_speed_percent(fan_s *fan, float speed) {
-	unsigned pwm = (speed == 0 ? 0 : roundf(remap(speed, 0, 100, fan->pwm_start, 1024)));
+	unsigned pwm;
+	if (speed == 0) {
+		pwm = 0;
+	} else if (speed == 100) {
+		pwm = 1024;
+	} else {
+		pwm = roundf(remap(speed, 0, 100, fan->pwm_low, fan->pwm_high));
+	}
 #	ifndef WITH_WIRINGPI_STUB
 	pwmWrite(fan->pwm_pin, pwm);
 #	endif
