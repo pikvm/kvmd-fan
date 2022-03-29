@@ -373,7 +373,6 @@ static int _loop(void) {
 	float prev_speed = -1;
 	unsigned prev_pwm = 0;
 	char *mode = "???";
-	bool fan_ok = true;
 
 	while (!atomic_load(&_g_stop)) {
 		float temp = 0;
@@ -420,23 +419,10 @@ static int _loop(void) {
 		}
 
 		int rpm = 0;
+		bool fan_ok = true;
 		if (_g_hall_pin >= 0) {
 			rpm = fan_get_hall_rpm(_g_fan);
-			if (rpm < 0) {
-				LOG_ERROR("loop", "Hall sensor failure");
-				goto error;
-			}
-			if (prev_speed > 0 && rpm == 0) {
-				if (fan_ok) {
-					LOG_ERROR("loop", "!!! Fan is not spinning !!!");
-					fan_ok = false;
-				}
-			} else {
-				if (!fan_ok) {
-					LOG_INFO("loop", "+++ Fan is spinning again +++");
-					fan_ok = true;
-				}
-			}
+			fan_ok = !(prev_speed > 0 && rpm <= 0);
 		}
 
 		if (_g_server) {
@@ -451,6 +437,19 @@ static int _loop(void) {
 			SAY(LOG_DEBUG, " . . . .");
 		}
 #		undef SAY
+
+		if (!fan_ok) {
+			LOG_ERROR("loop", "!!! Fan is not spinning !!!");
+			while (!atomic_load(&_g_stop)) {
+				fan_set_speed_percent(_g_fan, 100);
+				_stoppable_sleep(2);
+				if (fan_get_hall_rpm(_g_fan) > 0) {
+					LOG_INFO("loop", "+++ Fan is spinning again +++");
+					fan_set_speed_percent(_g_fan, prev_speed);
+					break;
+				}
+			}
+		}
 
 		_stoppable_sleep(_g_interval);
 	}

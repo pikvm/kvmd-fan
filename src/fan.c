@@ -113,13 +113,13 @@ static void *_hall_thread(void *v_fan) {
 		if (retval < 0) {
 			LOG_PERROR("fan.hall", "Can't wait events");
 			atomic_store(&fan->rpm, -1);
-			continue;
+			break;
 		} else if (retval > 0) {
 			retval = gpiod_line_event_read_multiple(fan->line, fan->events, ARRAY_LEN(fan->events));
 			if (retval < 0) {
 				LOG_PERROR("fan.hall", "Can't read events");
 				atomic_store(&fan->rpm, -1);
-				continue;
+				break;
 			}
 		} // retval == 0 for zero new events
 
