@@ -51,7 +51,7 @@ typedef struct {
 
 	pthread_t	tid;
 	atomic_int	rpm;
-	atomic_bool	run;
+	atomic_bool	stop;
 } fan_s;
 
 

@@ -42,7 +42,7 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, int hall_
 	pinMode(pwm_pin, PWM_OUTPUT);
 #	endif
 
-	atomic_init(&fan->run, false);
+	atomic_init(&fan->stop, true);
 	atomic_init(&fan->rpm, 0);
 	if (hall_pin >= 0) {
 		LOG_INFO("fan.hall", "Using pin=%d for the Hall sensor", hall_pin);
@@ -59,7 +59,7 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, int hall_
 			goto error;
 		}
 
-		atomic_store(&fan->run, true);
+		atomic_store(&fan->stop, false);
 		A_THREAD_CREATE(&fan->tid, _hall_thread, fan);
 	}
 
@@ -70,8 +70,8 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, int hall_
 }
 
 void fan_destroy(fan_s *fan) {
-	if (atomic_load(&fan->run)) {
-		atomic_store(&fan->run, false);
+	if (!atomic_load(&fan->stop)) {
+		atomic_store(&fan->stop, true);
 		A_THREAD_JOIN(fan->tid);
 	}
 	if (fan->line) {
@@ -108,7 +108,7 @@ static void *_hall_thread(void *v_fan) {
 	long double next_ts = get_now_monotonic() + 1;
 	unsigned pulses = 0;
 
-	while (atomic_load(&fan->run)) {
+	while (!atomic_load(&fan->stop)) {
 		int retval = gpiod_line_event_wait(fan->line, &timeout);
 		if (retval < 0) {
 			LOG_PERROR("fan.hall", "Can't wait events");
