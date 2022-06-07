@@ -8,7 +8,7 @@ CFLAGS ?= -O3
 LDFLAGS ?=
 
 _APP = kvmd-fan
-_CFLAGS = -MD -c -std=c11 -Wall -Wextra -D_GNU_SOURCE
+_CFLAGS = -MD -c -std=c17 -Wall -Wextra -D_GNU_SOURCE
 _LDFLAGS = $(LDFLAGS) -lm -lpthread -liniparser -lmicrohttpd -lgpiod
 _SRCS = $(shell ls src/*.c)
 _BUILD = build

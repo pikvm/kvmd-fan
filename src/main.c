@@ -116,7 +116,7 @@ static const struct option _LONG_OPTS[] = {
 	{NULL, 0, NULL, 0},
 };
 
-static atomic_bool _g_stop = ATOMIC_VAR_INIT(false);
+static atomic_bool _g_stop = false;
 static fan_s *_g_fan = NULL;
 static server_s *_g_server = NULL;
 
