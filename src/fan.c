@@ -26,7 +26,7 @@
 static void *_hall_thread(void *v_fan);
 
 
-fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, int hall_pin) {
+fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, int hall_pin, fan_bias_e hall_bias) {
 	assert(pwm_low < pwm_high);
 	assert(pwm_high <= 1024);
 
@@ -54,7 +54,13 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, int hall_
 			LOG_PERROR("fan.hall", "Can't get GPIO line");
 			goto error;
 		}
-		if (gpiod_line_request_falling_edge_events(fan->line, "kvmd-fan::hall") < 0) {
+		int flags;
+		switch (hall_bias) {
+			case FAN_BIAS_PULL_DOWN: flags = GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_DOWN; break;
+			case FAN_BIAS_PULL_UP: flags = GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_UP; break;
+			default: flags = GPIOD_LINE_REQUEST_FLAG_BIAS_DISABLE;
+		}
+		if (gpiod_line_request_falling_edge_events_flags(fan->line, "kvmd-fan::hall", flags) < 0) {
 			LOG_PERROR("fan.hall", "Can't request GPIO notification");
 			goto error;
 		}

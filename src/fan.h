@@ -39,6 +39,12 @@
 #include "logging.h"
 
 
+typedef enum {
+	FAN_BIAS_DISABLED = 0,
+	FAN_BIAS_PULL_DOWN = 1,
+	FAN_BIAS_PULL_UP = 2,
+} fan_bias_e;
+
 typedef struct {
 	unsigned	pwm_pin;
 	unsigned	pwm_low;
@@ -55,7 +61,7 @@ typedef struct {
 } fan_s;
 
 
-fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, int hall_pin);
+fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, int hall_pin, fan_bias_e hall_bias);
 void fan_destroy(fan_s *fan);
 
 unsigned fan_set_speed_percent(fan_s *fan, float speed);
