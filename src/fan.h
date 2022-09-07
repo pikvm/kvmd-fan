@@ -34,7 +34,7 @@
 #endif
 #include <gpiod.h>
 
-#include "config.h"
+#include "const.h"
 #include "tools.h"
 #include "logging.h"
 

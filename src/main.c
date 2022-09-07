@@ -35,7 +35,7 @@
 
 #include <iniparser.h>
 
-#include "config.h"
+#include "const.h"
 #include "logging.h"
 #include "temp.h"
 #include "fan.h"

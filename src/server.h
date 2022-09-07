@@ -35,7 +35,7 @@
 #include <pthread.h>
 #include <microhttpd.h>
 
-#include "config.h"
+#include "const.h"
 #include "tools.h"
 #include "logging.h"
 
