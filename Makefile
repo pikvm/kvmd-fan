@@ -26,6 +26,10 @@ ifneq ($(call optbool,$(WITH_WIRINGPI_STUB)),)
 override _CFLAGS += -DWITH_WIRINGPI_STUB
 else
 override _LDFLAGS += -lwiringPi
+ifneq ($(call optbool,$(WIRINGPI_SOFT_PWM)),)
+override _CFLAGS += -DWIRINGPI_SOFT_PWM
+override _LDFLAGS += -lpthread
+endif
 endif
 
 

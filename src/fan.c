@@ -22,6 +22,10 @@
 
 #include "fan.h"
 
+#ifdef WIRINGPI_SOFT_PWM
+#include <softPwm.h>
+#define SOFT_PWM_MAX 80
+#endif
 
 static void *_hall_thread(void *v_fan);
 
@@ -39,7 +43,11 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, int hall_
 	LOG_INFO("fan.pwm", "Using pin=%u for PWM range %u...%u", pwm_pin, pwm_low, pwm_high);
 #	ifndef WITH_WIRINGPI_STUB
 	wiringPiSetupGpio();
+#	ifndef WIRINGPI_SOFT_PWM
 	pinMode(pwm_pin, PWM_OUTPUT);
+#	else
+	softPwmCreate(pwm_pin, 0, SOFT_PWM_MAX);
+#	endif
 #	endif
 
 	atomic_init(&fan->stop, true);
@@ -99,7 +107,12 @@ unsigned fan_set_speed_percent(fan_s *fan, float speed) {
 		pwm = roundf(remap(speed, 0, 100, fan->pwm_low, fan->pwm_high));
 	}
 #	ifndef WITH_WIRINGPI_STUB
+#	ifndef WIRINGPI_SOFT_PWM
 	pwmWrite(fan->pwm_pin, pwm);
+#	else
+	unsigned softpwm = pwm / 1024.0 * SOFT_PWM_MAX;
+	softPwmWrite(fan->pwm_pin, softpwm);
+# 	endif
 #	endif
 	return pwm;
 }
