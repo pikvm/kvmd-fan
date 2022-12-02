@@ -53,6 +53,7 @@ enum _OPT_VALUES {
 	_O_PWM_PIN = 10000,
 	_O_PWM_LOW,
 	_O_PWM_HIGH,
+	_O_PWM_SOFT,
 	_O_HALL_PIN,
 	_O_HALL_BIAS,
 
@@ -81,6 +82,7 @@ static const struct option _LONG_OPTS[] = {
 	{"pwm-pin",			required_argument,	NULL,	_O_PWM_PIN},
 	{"pwm-low",			required_argument,	NULL,	_O_PWM_LOW},
 	{"pwm-high",		required_argument,	NULL,	_O_PWM_HIGH},
+	{"pwm-soft",		required_argument,	NULL,	_O_PWM_SOFT},
 	{"hall-pin",		required_argument,	NULL,	_O_HALL_PIN},
 	{"hall-bias",		required_argument,	NULL,	_O_HALL_BIAS},
 
@@ -125,6 +127,7 @@ static server_s *_g_server = NULL;
 static int _g_pwm_pin = 12;
 static int _g_pwm_low = 0;
 static int _g_pwm_high = 1024;
+static int _g_pwm_soft = 0;
 static int _g_hall_pin = -1;
 static fan_bias_e _g_hall_bias = FAN_BIAS_DISABLED;
 
@@ -179,6 +182,7 @@ int main(int argc, char *argv[]) {
 			case _O_PWM_PIN:		OPT_NUMBER("--pwm-pin",			_g_pwm_pin,			0, 256);
 			case _O_PWM_LOW:		OPT_NUMBER("--pwm-low",			_g_pwm_low,			0, 1024);
 			case _O_PWM_HIGH:		OPT_NUMBER("--pwm-high",		_g_pwm_high,		1, 1024);
+			case _O_PWM_SOFT:		OPT_NUMBER("--pwm-soft",		_g_pwm_soft,		50, 100);
 			case _O_HALL_PIN:		OPT_NUMBER("--hall-pin",		_g_hall_pin,		-1, 256);
 			case _O_HALL_BIAS:		OPT_NUMBER("--hall-bias",		_g_hall_bias,		FAN_BIAS_DISABLED, FAN_BIAS_PULL_UP);
 
@@ -243,7 +247,7 @@ int main(int argc, char *argv[]) {
 
 	_install_signal_handlers();
 
-	if ((_g_fan = fan_init(_g_pwm_pin, _g_pwm_low, _g_pwm_high, _g_hall_pin, _g_hall_bias)) == NULL) {
+	if ((_g_fan = fan_init(_g_pwm_pin, _g_pwm_low, _g_pwm_high, _g_pwm_soft, _g_hall_pin, _g_hall_bias)) == NULL) {
 		goto error;
 	}
 
@@ -305,6 +309,7 @@ static int _load_ini(const char *path) {
 	MATCH("main",		"pwm_pin",		_g_pwm_pin,			0, 256,		0)
 	MATCH("main",		"pwm_low",		_g_pwm_low,			0, 1024,	0)
 	MATCH("main",		"pwm_high",		_g_pwm_high,		1, 1024,	0)
+	MATCH("main",		"pwm_soft",		_g_pwm_soft,		50, 100,	0)
 	MATCH("main",		"hall_pin",		_g_hall_pin,		-1, 256,	0)
 	MATCH("main",		"hall_bias",	_g_hall_bias,		FAN_BIAS_DISABLED, FAN_BIAS_PULL_UP, 0);
 	MATCH("main",		"interval",		_g_interval,		1, 10,		0)
@@ -480,6 +485,7 @@ static void _help(void) {
 	SAY("    --pwm-pin <N>  ─── GPIO pin for PWM. Default: %d.\n", _g_pwm_pin);
 	SAY("    --pwm-low <N>  ─── PWM low level. Default: %d.\n", _g_pwm_low);
 	SAY("    --pwm-high <N>  ── PWM high level. Default: %d.\n", _g_pwm_high);
+	SAY("    --pwm-soft <N>  ── Use software PWM with specified range 0-N. Default: disabled.\n");
 	SAY("    --hall-pin <N>  ── GPIO pin for the Hall sensor. Default: disabled.\n");
 	SAY("    --hall-bias <N>  ─ Hall pin bias: 0 = disabled, 1 = pull-down, 2 = pull-up. Default: %d.\n", _g_hall_bias);
 	SAY("Fan control options:");

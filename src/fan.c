@@ -26,7 +26,7 @@
 static void *_hall_thread(void *v_fan);
 
 
-fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, int hall_pin, fan_bias_e hall_bias) {
+fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned pwm_soft, int hall_pin, fan_bias_e hall_bias) {
 	assert(pwm_low < pwm_high);
 	assert(pwm_high <= 1024);
 
@@ -35,11 +35,16 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, int hall_
 	fan->pwm_pin = pwm_pin;
 	fan->pwm_low = pwm_low;
 	fan->pwm_high = pwm_high;
+	fan->pwm_soft = pwm_soft;
 
 	LOG_INFO("fan.pwm", "Using pin=%u for PWM range %u...%u", pwm_pin, pwm_low, pwm_high);
 #	ifndef WITH_WIRINGPI_STUB
 	wiringPiSetupGpio();
-	pinMode(pwm_pin, PWM_OUTPUT);
+	if (pwm_soft) {
+		softPwmCreate(pwm_pin, 0, pwm_soft);
+	} else {
+		pinMode(pwm_pin, PWM_OUTPUT);
+	}
 #	endif
 
 	atomic_init(&fan->stop, true);
@@ -99,7 +104,11 @@ unsigned fan_set_speed_percent(fan_s *fan, float speed) {
 		pwm = roundf(remap(speed, 0, 100, fan->pwm_low, fan->pwm_high));
 	}
 #	ifndef WITH_WIRINGPI_STUB
-	pwmWrite(fan->pwm_pin, pwm);
+	if (fan->pwm_soft) {
+		softPwmWrite(fan->pwm_pin, pwm / 1024.0 * fan->pwm_soft);
+	} else {
+		pwmWrite(fan->pwm_pin, pwm);
+	}
 #	endif
 	return pwm;
 }

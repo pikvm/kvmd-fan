@@ -49,6 +49,7 @@ typedef struct {
 	unsigned	pwm_pin;
 	unsigned	pwm_low;
 	unsigned	pwm_high;
+	unsigned	pwm_soft;
 
 	// Hall sensor
 	struct gpiod_chip		*chip;
@@ -61,7 +62,7 @@ typedef struct {
 } fan_s;
 
 
-fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, int hall_pin, fan_bias_e hall_bias);
+fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned pwm_soft, int hall_pin, fan_bias_e hall_bias);
 void fan_destroy(fan_s *fan);
 
 unsigned fan_set_speed_percent(fan_s *fan, float speed);
