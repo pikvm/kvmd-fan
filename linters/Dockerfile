@@ -3,10 +3,27 @@ FROM archlinux/archlinux:base-devel
 RUN mkdir -p /etc/pacman.d/hooks \
 	&& ln -s /dev/null /etc/pacman.d/hooks/30-systemd-tmpfiles.hook
 
-RUN echo "Server = http://mirror.yandex.ru/archlinux/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist
+RUN echo 'Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch' > /etc/pacman.d/mirrorlist \
+	&& pacman-key --init \
+	&& pacman-key --populate archlinux
 
-RUN pacman -Syu --noconfirm \
-	&& pacman -S --needed --noconfirm \
+RUN pacman --noconfirm --ask=4 -Syy \
+	&& pacman --needed --noconfirm --ask=4 -S \
+		glibc \
+		pacman \
+		openssl \
+		openssl-1.0 \
+		openssl-1.1 \
+	&& pacman-db-upgrade \
+	&& pacman --noconfirm --ask=4 -Syu \
+	&& pacman --needed --noconfirm --ask=4 -S \
+		p11-kit \
+		archlinux-keyring \
+		ca-certificates \
+		ca-certificates-mozilla \
+		ca-certificates-utils \
+	&& pacman -Syu --noconfirm --ask=4 \
+	&& pacman -S --needed --noconfirm --ask=4 \
 		vim \
 		git \
 		python \
