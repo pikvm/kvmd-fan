@@ -31,6 +31,7 @@
 #include <pthread.h>
 #ifndef WITH_WIRINGPI_STUB
 #	include <wiringPi.h>
+#	include <softPwm.h>
 #endif
 #include <gpiod.h>
 
