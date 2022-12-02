@@ -485,7 +485,7 @@ static void _help(void) {
 	SAY("    --pwm-pin <N>  ─── GPIO pin for PWM. Default: %d.\n", _g_pwm_pin);
 	SAY("    --pwm-low <N>  ─── PWM low level. Default: %d.\n", _g_pwm_low);
 	SAY("    --pwm-high <N>  ── PWM high level. Default: %d.\n", _g_pwm_high);
-	SAY("    --pwm-soft <N>  ── Use software PWM with specified range 0-N. Default: disabled.\n");
+	SAY("    --pwm-soft <N>  ── Use software PWM with specified range 0...N. Default: disabled.\n");
 	SAY("    --hall-pin <N>  ── GPIO pin for the Hall sensor. Default: disabled.\n");
 	SAY("    --hall-bias <N>  ─ Hall pin bias: 0 = disabled, 1 = pull-down, 2 = pull-up. Default: %d.\n", _g_hall_bias);
 	SAY("Fan control options:");
