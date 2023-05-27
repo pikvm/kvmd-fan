@@ -2,7 +2,7 @@
 #                                                                            #
 #    KVMD-FAN - A small fan controller daemon for PiKVM.                     #
 #                                                                            #
-#    Copyright (C) 2018-2022  Maxim Devaev <mdevaev@gmail.com>               #
+#    Copyright (C) 2018-2023  Maxim Devaev <mdevaev@gmail.com>               #
 #                                                                            #
 #    This program is free software: you can redistribute it and/or modify    #
 #    it under the terms of the GNU General Public License as published by    #
@@ -479,7 +479,7 @@ static void _help(void) {
 	SAY("\nKVMD-FAN - A small fan controller daemon for PiKVM");
 	SAY("══════════════════════════════════════════════════");
 	SAY("Version: %s; license: GPLv3", VERSION);
-	SAY("Copyright (C) 2018-2022 Maxim Devaev <mdevaev@gmail.com>\n");
+	SAY("Copyright (C) 2018-2023 Maxim Devaev <mdevaev@gmail.com>\n");
 	SAY("Hardware options:");
 	SAY("═════════════════");
 	SAY("    --pwm-pin <N>  ─── GPIO pin for PWM. Default: %d.\n", _g_pwm_pin);
