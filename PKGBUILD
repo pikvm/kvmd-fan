@@ -8,7 +8,7 @@ arch=(armv6h armv7h aarch64)
 depends=(
 	iniparser
 	libmicrohttpd
-	libgpiod
+	libgpiod1
 	wiringpi
 )
 source=(${pkgname}::"git+https://github.com/pikvm/kvmd-fan#commit=v${pkgver}")
