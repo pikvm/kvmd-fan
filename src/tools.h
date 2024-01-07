@@ -49,8 +49,6 @@
 #define A_CALLOC(_dest, _nmemb)			assert((_dest = calloc(_nmemb, sizeof(*(_dest)))))
 #define A_ASPRINTF(_dest, _fmt, ...)	assert(asprintf(&(_dest), _fmt, ##__VA_ARGS__) >= 0)
 
-#define ARRAY_LEN(_array) (sizeof(_array) / sizeof(_array[0]))
-
 #define A_THREAD_CREATE(_tid, _func, _arg)	assert(!pthread_create(_tid, NULL, _func, _arg))
 #define A_THREAD_JOIN(_tid)					assert(!pthread_join(_tid, NULL))
 #define A_MUTEX_INIT(_mutex)				assert(!pthread_mutex_init(_mutex, NULL))

@@ -27,6 +27,7 @@
 #include <stdatomic.h>
 #include <unistd.h>
 #include <math.h>
+#include <assert.h>
 
 #include <pthread.h>
 #ifndef WITH_WIRINGPI_STUB
@@ -53,9 +54,12 @@ typedef struct {
 	unsigned	pwm_soft;
 
 	// Hall sensor
-	struct gpiod_chip		*chip;
-	struct gpiod_line		*line;
-	struct gpiod_line_event	events[16];
+#	ifdef HAVE_GPIOD2
+	struct gpiod_line_request	*line;
+#	else
+	struct gpiod_chip			*chip;
+	struct gpiod_line			*line;
+#	endif
 
 	pthread_t	tid;
 	atomic_int	rpm;

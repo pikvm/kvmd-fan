@@ -51,6 +51,48 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned 
 	atomic_init(&fan->rpm, 0);
 	if (hall_pin >= 0) {
 		LOG_INFO("fan.hall", "Using pin=%d for the Hall sensor", hall_pin);
+
+#		ifdef HAVE_GPIOD2
+		struct gpiod_chip *chip;
+		if ((chip = gpiod_chip_open("/dev/gpiochip0")) == NULL) {
+			LOG_PERROR("fan.hall", "Can't open GPIO chip");
+			goto error;
+		}
+
+		struct gpiod_line_settings *line_settings;
+		assert(line_settings = gpiod_line_settings_new());
+		assert(!gpiod_line_settings_set_direction(line_settings, GPIOD_LINE_DIRECTION_INPUT));
+		assert(!gpiod_line_settings_set_edge_detection(line_settings, GPIOD_LINE_EDGE_FALLING));
+		assert(!gpiod_line_settings_set_bias(line_settings,
+			hall_bias == FAN_BIAS_PULL_DOWN ? GPIOD_LINE_BIAS_PULL_DOWN
+			: hall_bias == FAN_BIAS_PULL_UP ? GPIOD_LINE_BIAS_PULL_UP
+			: GPIOD_LINE_BIAS_DISABLED
+		));
+
+		struct gpiod_line_config *line_config;
+		assert(line_config = gpiod_line_config_new());
+		const unsigned offset = hall_pin;
+		assert(!gpiod_line_config_add_line_settings(line_config, &offset, 1, line_settings));
+
+		struct gpiod_request_config *request_config;
+		assert(request_config = gpiod_request_config_new());
+		gpiod_request_config_set_consumer(request_config, "kvmd-fan::hall");
+
+		if ((fan->line = gpiod_chip_request_lines(chip, request_config, line_config)) == NULL) {
+			LOG_PERROR("fan.hall", "Can't request GPIO notification");
+		}
+
+		gpiod_request_config_free(request_config);
+		gpiod_line_config_free(line_config);
+		gpiod_line_settings_free(line_settings);
+		gpiod_chip_close(chip);
+
+		if (fan->line == NULL) {
+			goto error;
+		}
+
+#		else
+
 		if ((fan->chip = gpiod_chip_open_by_number(0)) == NULL) {
 			LOG_PERROR("fan.hall", "Can't open GPIO chip");
 			goto error;
@@ -69,6 +111,7 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned 
 			LOG_PERROR("fan.hall", "Can't request GPIO notification");
 			goto error;
 		}
+#		endif
 
 		atomic_store(&fan->stop, false);
 		A_THREAD_CREATE(&fan->tid, _hall_thread, fan);
@@ -85,12 +128,18 @@ void fan_destroy(fan_s *fan) {
 		atomic_store(&fan->stop, true);
 		A_THREAD_JOIN(fan->tid);
 	}
+#	ifdef HAVE_GPIOD2
+	if (fan->line) {
+		gpiod_line_request_release(fan->line);
+	}
+#	else
 	if (fan->line) {
 		gpiod_line_release(fan->line);
 	}
 	if (fan->chip) {
 		gpiod_chip_close(fan->chip);
 	}
+#	endif
 	free(fan);
 }
 
@@ -118,19 +167,36 @@ int fan_get_hall_rpm(fan_s *fan) {
 }
 
 static void *_hall_thread(void *v_fan) {
+#	define _MAX_EVENTS 16
+
 	fan_s *fan = (fan_s *)v_fan;
-	const struct timespec timeout = {0, 100000000};
 	long double next_ts = get_now_monotonic() + 1;
 	unsigned pulses = 0;
 
+#	ifdef HAVE_GPIOD2
+	struct gpiod_edge_event_buffer *events;
+	assert(events = gpiod_edge_event_buffer_new(_MAX_EVENTS));
+#	else
+	struct gpiod_line_event	events[_MAX_EVENTS];
+#	endif
+
 	while (!atomic_load(&fan->stop)) {
+#		ifdef HAVE_GPIOD2
+		int retval = gpiod_line_request_wait_edge_events(fan->line, 100000000);
+#		else
+		const struct timespec timeout = {0, 100000000};
 		int retval = gpiod_line_event_wait(fan->line, &timeout);
+#		endif
 		if (retval < 0) {
 			LOG_PERROR("fan.hall", "Can't wait events");
 			atomic_store(&fan->rpm, -1);
 			break;
 		} else if (retval > 0) {
-			retval = gpiod_line_event_read_multiple(fan->line, fan->events, ARRAY_LEN(fan->events));
+#			ifdef HAVE_GPIOD2
+			retval = gpiod_line_request_read_edge_events(fan->line, events, _MAX_EVENTS);
+#			else
+			retval = gpiod_line_event_read_multiple(fan->line, events, _MAX_EVENTS);
+#			endif
 			if (retval < 0) {
 				LOG_PERROR("fan.hall", "Can't read events");
 				atomic_store(&fan->rpm, -1);
@@ -149,5 +215,11 @@ static void *_hall_thread(void *v_fan) {
 
 		usleep(10000);
 	}
+
+#	ifdef HAVE_GPIOD2
+	gpiod_edge_event_buffer_free(events);
+#	endif
 	return NULL;
+
+#	undef _MAX_EVENTS
 }
