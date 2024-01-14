@@ -32,4 +32,6 @@ RUN pacman --noconfirm --ask=4 -Syy \
 	&& (pacman -Sc --noconfirm || true) \
 	&& rm -rf /var/cache/pacman/pkg/*
 
+RUN ln -s /usr/lib/libtinyxml2.so.10 /usr/lib/libtinyxml2.so.9
+
 CMD /bin/bash
