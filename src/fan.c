@@ -146,11 +146,11 @@ void fan_destroy(fan_s *fan) {
 unsigned fan_set_speed_percent(fan_s *fan, float speed) {
 	unsigned pwm;
 	if (speed == 0) {
-		pwm = 0;
+		pwm = (int) fan->pwm_low;
 	} else if (speed == 100) {
-		pwm = 1024;
+		pwm = (int) fan->pwm_high;
 	} else {
-		pwm = roundf(remap(speed, 0, 100, fan->pwm_low, fan->pwm_high));
+		pwm = (int) roundf(remap(speed, 0, 100, fan->pwm_low, fan->pwm_high));
 	}
 #	ifndef WITH_WIRINGPI_STUB
 	if (fan->pwm_soft) {
