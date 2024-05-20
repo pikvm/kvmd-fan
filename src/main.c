@@ -129,7 +129,9 @@ static int _g_pwm_low = 0;
 static int _g_pwm_high = 1024;
 static int _g_pwm_soft = 0;
 static int _g_hall_pin = -1;
-static fan_bias_e _g_hall_bias = FAN_BIAS_DISABLED;
+// Most of the fans are using open collector output for tachometer output signal, so the default mode should use pull-up
+// See Noctua spec, for example: https://noctua.at/pub/media/wysiwyg/Noctua_PWM_specifications_white_paper.pdf
+static fan_bias_e _g_hall_bias = FAN_BIAS_PULL_UP;
 
 static float _g_temp_hyst = 3;
 static float _g_temp_low = 45;
@@ -311,7 +313,7 @@ static int _load_ini(const char *path) {
 	MATCH("main",		"pwm_high",		_g_pwm_high,		1, 1024,	0)
 	MATCH("main",		"pwm_soft",		_g_pwm_soft,		0, 1,		0)
 	MATCH("main",		"hall_pin",		_g_hall_pin,		-1, 256,	0)
-	MATCH("main",		"hall_bias",	_g_hall_bias,		FAN_BIAS_DISABLED, FAN_BIAS_PULL_UP, 0);
+	MATCH("main",		"hall_bias",	_g_hall_bias,		FAN_BIAS_DISABLED, FAN_BIAS_PULL_UP, FAN_BIAS_PULL_UP);
 	MATCH("main",		"interval",		_g_interval,		1, 10,		0)
 	MATCH("temp",		"hyst",			_g_temp_hyst,		1, 5,		0)
 	MATCH("temp",		"low",			_g_temp_low,		0, 85,		0)

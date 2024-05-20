@@ -117,10 +117,11 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned 
 			goto error;
 		}
 		int flags;
+		// It is safer to assume tacho signal requires to be pulled-up than leave the dangling wire
 		switch (hall_bias) {
 			case FAN_BIAS_PULL_DOWN: flags = GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_DOWN; break;
-			case FAN_BIAS_PULL_UP: flags = GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_UP; break;
-			default: flags = GPIOD_LINE_REQUEST_FLAG_BIAS_DISABLE;
+			case FAN_BIAS_DISABLED: flags = GPIOD_LINE_REQUEST_FLAG_BIAS_DISABLE; break;
+			default: flags = GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_UP;
 		}
 		if (gpiod_line_request_falling_edge_events_flags(fan->line, "kvmd-fan::hall", flags) < 0) {
 			LOG_PERROR("fan.hall", "Can't request GPIO notification");
