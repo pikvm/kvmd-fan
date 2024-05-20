@@ -58,7 +58,8 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned 
 		pwmSetClock(6);
 		// 19200000/6/25000 = 128
 		// 54000000/16/25000 = 135 - good enough value for both Pi3 and Pi4
-		pwmSetRange(135);
+		fan->pwm_high = 135;
+		pwmSetRange(fan->pwm_high);
 	}
 #	endif
 
@@ -80,8 +81,8 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned 
 		assert(!gpiod_line_settings_set_edge_detection(line_settings, GPIOD_LINE_EDGE_FALLING));
 		assert(!gpiod_line_settings_set_bias(line_settings,
 			hall_bias == FAN_BIAS_PULL_DOWN ? GPIOD_LINE_BIAS_PULL_DOWN
-			: hall_bias == FAN_BIAS_PULL_UP ? GPIOD_LINE_BIAS_PULL_UP
-			: GPIOD_LINE_BIAS_DISABLED
+			: hall_bias == FAN_BIAS_DISABLED ? GPIOD_LINE_BIAS_DISABLED
+			: GPIOD_LINE_BIAS_PULL_UP
 		));
 
 		struct gpiod_line_config *line_config;
