@@ -26,23 +26,29 @@
 static void *_hall_thread(void *v_fan);
 
 
-fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned pwm_soft, int hall_pin, fan_bias_e hall_bias) {
-	assert(pwm_low < pwm_high);
-	assert(pwm_high <= 1024);
+fan_s *fan_init(unsigned pwm_pin, float pwm_min_duty, unsigned pwm_soft, int hall_pin, fan_bias_e hall_bias) {
+	assert(pwm_min_duty >= 0);
+	assert(pwm_min_duty < 100);
+	assert(pwm_soft <= 1024);
 
 	fan_s *fan;
 	A_CALLOC(fan, 1);
 	fan->pwm_pin = pwm_pin;
-	fan->pwm_low = pwm_low;
-	fan->pwm_high = pwm_high;
+
+	// Operation below 20% PWM duty-cycle is not officially supported in the Intel specification
+	// (undefined behaviour). However, most Noctua PWM fans can be operated at below 20%
+	// and will stop at 0% duty-cycle.
+	// Calculated from the actual PWM range: pwm_low = pwm_min_duty/100 * pwm_high;
+	fan->pwm_low = 0;
 	fan->pwm_soft = pwm_soft;
 
-	LOG_INFO("fan.pwm", "Using pin=%u for PWM range %u...%u", pwm_pin, pwm_low, pwm_high);
 #	ifndef WITH_WIRINGPI_STUB
 	wiringPiSetupGpio();
 	if (pwm_soft) {
 		LOG_INFO("fan.pwm", "Using software PWM");
-		softPwmCreate(pwm_pin, 0, pwm_high);
+		fan->pwm_high = pwm_soft;
+		fan->pwm_low = (int) (pwm_min_duty/100.0 * fan->pwm_high);
+		softPwmCreate(pwm_pin, fan->pwm_low, fan->pwm_high);
 	} else {
 		pinMode(pwm_pin, PWM_OUTPUT);
 		// PWM mark-space encoding mode is required (aka MSEN=1 sub-mode in BCM2835/2711 peripherials terminology).
@@ -60,13 +66,17 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned 
 		// 54000000/16/25000 = 135 - good enough value for both Pi3 and Pi4
 		fan->pwm_high = 135;
 		pwmSetRange(fan->pwm_high);
+
+		fan->pwm_low = (int) (pwm_min_duty/100.0 * fan->pwm_high);
 	}
 #	endif
+
+	LOG_INFO("fan.pwm", "Using pin=%u for PWM range %u...%u", fan->pwm_pin, fan->pwm_low, fan->pwm_high);
 
 	atomic_init(&fan->stop, true);
 	atomic_init(&fan->rpm, 0);
 	if (hall_pin >= 0) {
-		LOG_INFO("fan.hall", "Using pin=%d for the Hall sensor", hall_pin);
+		LOG_INFO("fan.hall", "Using pin=%d for the Hall sensor, bias=%d", hall_pin, hall_bias);
 
 #		ifdef HAVE_GPIOD2
 		struct gpiod_chip *chip;
@@ -161,14 +171,7 @@ void fan_destroy(fan_s *fan) {
 }
 
 unsigned fan_set_speed_percent(fan_s *fan, float speed) {
-	unsigned pwm;
-	if (speed == 0) {
-		pwm = (int) fan->pwm_low;
-	} else if (speed == 100) {
-		pwm = (int) fan->pwm_high;
-	} else {
-		pwm = (int) roundf(remap(speed, 0, 100, fan->pwm_low, fan->pwm_high));
-	}
+	unsigned pwm = (int) roundf(remap(speed, 0, 100, fan->pwm_low, fan->pwm_high));
 #	ifndef WITH_WIRINGPI_STUB
 	if (fan->pwm_soft) {
 		softPwmWrite(fan->pwm_pin, pwm);
