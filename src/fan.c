@@ -41,7 +41,8 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned 
 #	ifndef WITH_WIRINGPI_STUB
 	wiringPiSetupGpio();
 	if (pwm_soft) {
-		softPwmCreate(pwm_pin, 0, pwm_soft);
+		LOG_INFO("fan.pwm", "Using software PWM");
+		softPwmCreate(pwm_pin, 0, pwm_high);
 	} else {
 		pinMode(pwm_pin, PWM_OUTPUT);
 	}
@@ -154,7 +155,7 @@ unsigned fan_set_speed_percent(fan_s *fan, float speed) {
 	}
 #	ifndef WITH_WIRINGPI_STUB
 	if (fan->pwm_soft) {
-		softPwmWrite(fan->pwm_pin, pwm / 1024.0 * fan->pwm_soft);
+		softPwmWrite(fan->pwm_pin, pwm);
 	} else {
 		pwmWrite(fan->pwm_pin, pwm);
 	}

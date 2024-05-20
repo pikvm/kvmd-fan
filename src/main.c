@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
 			case _O_PWM_PIN:		OPT_NUMBER("--pwm-pin",			_g_pwm_pin,			0, 256);
 			case _O_PWM_LOW:		OPT_NUMBER("--pwm-low",			_g_pwm_low,			0, 1024);
 			case _O_PWM_HIGH:		OPT_NUMBER("--pwm-high",		_g_pwm_high,		1, 1024);
-			case _O_PWM_SOFT:		OPT_NUMBER("--pwm-soft",		_g_pwm_soft,		50, 100);
+			case _O_PWM_SOFT:		OPT_NUMBER("--pwm-soft",		_g_pwm_soft,		0, 1);
 			case _O_HALL_PIN:		OPT_NUMBER("--hall-pin",		_g_hall_pin,		-1, 256);
 			case _O_HALL_BIAS:		OPT_NUMBER("--hall-bias",		_g_hall_bias,		FAN_BIAS_DISABLED, FAN_BIAS_PULL_UP);
 
@@ -309,7 +309,7 @@ static int _load_ini(const char *path) {
 	MATCH("main",		"pwm_pin",		_g_pwm_pin,			0, 256,		0)
 	MATCH("main",		"pwm_low",		_g_pwm_low,			0, 1024,	0)
 	MATCH("main",		"pwm_high",		_g_pwm_high,		1, 1024,	0)
-	MATCH("main",		"pwm_soft",		_g_pwm_soft,		50, 100,	0)
+	MATCH("main",		"pwm_soft",		_g_pwm_soft,		0, 1,		0)
 	MATCH("main",		"hall_pin",		_g_hall_pin,		-1, 256,	0)
 	MATCH("main",		"hall_bias",	_g_hall_bias,		FAN_BIAS_DISABLED, FAN_BIAS_PULL_UP, 0);
 	MATCH("main",		"interval",		_g_interval,		1, 10,		0)
