@@ -45,6 +45,20 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned 
 		softPwmCreate(pwm_pin, 0, pwm_high);
 	} else {
 		pinMode(pwm_pin, PWM_OUTPUT);
+		// PWM mark-space encoding mode is required (aka MSEN=1 sub-mode in BCM2835/2711 peripherials terminology).
+		//   At least according to Noctua PWM specification: https://noctua.at/pub/media/wysiwyg/Noctua_PWM_specifications_white_paper.pdf
+		//   Which is based on the Intel PWM fan specs: https://www.intel.com/content/dam/support/us/en/documents/intel-nuc/intel-4wire-pwm-fans-specs.pdf
+		pwmSetMode(PWM_MODE_MS);
+		// Target frequency: 25kHz, acceptable range 21kHz to 28kHz. 1/25000 = 40 microseconds.
+		// Set clock divider to 6 (1/6 of the Pi3's 19.2 MHz oscillator) = 3.2 MHz
+		// Note: Pi4 (BCM2711) uses different oscillator (54 MHz) and WiringPi handles it with additional weird integer math:
+		// divisor = (540*divisor/192) & 4095;
+		// https://github.com/WiringPi/WiringPi/blob/8960cc91b911db8ec0c272781edf34b8aedb60d9/wiringPi/wiringPi.c#L1367
+		// So 2 will become 5 for Pi4, 6 will become 16 and so on:
+		pwmSetClock(6);
+		// 19200000/6/25000 = 128
+		// 54000000/16/25000 = 135 - good enough value for both Pi3 and Pi4
+		pwmSetRange(135);
 	}
 #	endif
 
