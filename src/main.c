@@ -33,7 +33,7 @@
 
 #include <sys/stat.h>
 
-#include <iniparser.h>
+#include <iniparser/iniparser.h>
 
 #include "const.h"
 #include "logging.h"
