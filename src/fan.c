@@ -59,7 +59,7 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned 
 		// The conversion is done using 'C' integer division, and all fractional remainders are lost.
 		// For RPi-4b, munged_divisor = 540*divisor/192. For clock==1, munged_divisor==2.
 		// 4b_pwm_freq = osc_freq/munged_divisor/Range = 54MHz/2/1024 = 26.367KHz - verified on 'scope
-		// 3b_pwm_freq = osc_freq/munged_divisor/Range = 19.2MHz/1/1024 = 18.750KHz - a little slow, but ok
+		// 3b_pwm_freq = osc_freq/divisor/Range = 19.2MHz/1/1024 = 18.750KHz - a little slow, but ok
 		pwmSetClock( 1 );
 	}
 #	endif
