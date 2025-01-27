@@ -9,7 +9,7 @@ depends=(
 	iniparser
 	libmicrohttpd
 	"libgpiod>=2.1"
-	wiringpi
+	wiringpi-pikvm
 )
 source=(${pkgname}::"git+https://github.com/pikvm/kvmd-fan#commit=v${pkgver}")
 md5sums=(SKIP)
