@@ -44,6 +44,23 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned 
 		softPwmCreate(pwm_pin, 0, pwm_soft);
 	} else {
 		pinMode(pwm_pin, PWM_OUTPUT);
+		// Use mark-space mode to avoid "smoothing" the pulses, and adding noise
+		pwmSetMode(PWM_MODE_MS);
+		// Explicitly set the PWM Range, even though 1024 is the default
+		// match Range with value of "--pwm-high=" in /etc/conf.d/kvmd-fan
+		pwmSetRange( 1024 );
+		// Set the PWM clock divisor to get a PWM frequency as close to 25KHz as possible.
+		// 25KHz is the industry standard for small fans. 
+		// https://noctua.at/pub/media/wysiwyg/Noctua_PWM_specifications_white_paper.pdf
+
+		// The passed clock divisor for a RPi-4b is converted by wiringPi code to account for 
+		// the different oscillator frequencies in the 4b v.s. the 3b families (54MHz v.s. 19.2MHz).
+		//     cat /sys/kernel/debug/clk/osc/clk_rate
+		// The conversion is done using 'C' integer division, and all fractional remainders are lost.
+		// For RPi-4b, munged_divisor = 540*divisor/192. For clock==1, munged_divisor==2.
+		// 4b_pwm_freq = osc_freq/munged_divisor/Range = 54MHz/2/1024 = 26.367KHz - verified on 'scope
+		// 3b_pwm_freq = osc_freq/divisor/Range = 19.2MHz/1/1024 = 18.750KHz - a little slow, but ok
+		pwmSetClock( 1 );
 	}
 #	endif
 
