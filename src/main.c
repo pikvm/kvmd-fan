@@ -382,7 +382,7 @@ static int _loop(void) {
 	float temp_fixed = 0;
 	float prev_speed = -1;
 	unsigned prev_pwm = 0;
-	char *mode = "???";
+	const char *mode = "???";
 
 	while (!atomic_load(&_g_stop)) {
 		float temp = 0;

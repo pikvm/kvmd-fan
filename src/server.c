@@ -132,7 +132,7 @@ static void _mhd_log(UNUSED void *ctx, const char *fmt, va_list args) {
 
 static enum MHD_Result _mhd_handler(void *v_server, struct MHD_Connection *conn,
 	const char *url, const char *method, UNUSED const char *version,
-	UNUSED const char *upload_data, size_t *upload_data_size,  // cppcheck-suppress constParameter
+	UNUSED const char *upload_data, size_t *upload_data_size,  // cppcheck-suppress [constParameter, constParameterCallback]
 	UNUSED void **ctx) {
 
 	server_s *server = (server_s *)v_server;

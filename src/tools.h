@@ -82,7 +82,7 @@ INLINE char *errno_to_string(int error, char *buf, size_t size) {
 	assert(buf);
 	assert(size > 0);
 	locale_t locale = newlocale(LC_MESSAGES_MASK, "C", NULL);
-	char *str = "!!! newlocale() error !!!";
+	const char *const str = "!!! newlocale() error !!!";
 	strncpy(buf, (locale ? strerror_l(error, locale) : str), size - 1);
 	buf[size - 1] = '\0';
 	if (locale) {

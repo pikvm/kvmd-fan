@@ -69,7 +69,7 @@ extern pthread_mutex_t log_mutex;
 
 #define LOG_PERROR(_class, _msg, ...) { \
 		char _perror_buf[1024] = {0}; \
-		char *_perror_ptr = errno_to_string(errno, _perror_buf, 1024); \
+		const char *const _perror_ptr = errno_to_string(errno, _perror_buf, 1024); \
 		LOG_ERROR(_class, _msg ": %s", ##__VA_ARGS__, _perror_ptr); \
 	}
 
