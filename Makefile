@@ -8,7 +8,7 @@ CFLAGS ?= -O3
 LDFLAGS ?=
 
 _APP = kvmd-fan
-_CFLAGS = -MD -c -std=c17 -Wall -Wextra -D_GNU_SOURCE $(shell pkg-config --atleast-version=2 libgpiod 2> /dev/null && echo -DHAVE_GPIOD2)
+_CFLAGS = $(CFLAGS) -MD -c -std=c17 -Wall -Wextra -D_GNU_SOURCE $(shell pkg-config --atleast-version=2 libgpiod 2> /dev/null && echo -DHAVE_GPIOD2)
 _LDFLAGS = $(LDFLAGS) -lm -lpthread -liniparser -lmicrohttpd -lgpiod
 _SRCS = $(shell ls src/*.c)
 _BUILD = build

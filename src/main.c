@@ -56,6 +56,7 @@ enum _OPT_VALUES {
 	_O_PWM_SOFT,
 	_O_HALL_PIN,
 	_O_HALL_BIAS,
+	_O_PWM_MIN_DUTY,
 
 	_O_TEMP_HYST,
 	_O_TEMP_LOW,
@@ -80,8 +81,9 @@ enum _OPT_VALUES {
 static const char *const _SHORT_OPTS = "hvic:";
 static const struct option _LONG_OPTS[] = {
 	{"pwm-pin",			required_argument,	NULL,	_O_PWM_PIN},
-	{"pwm-low",			required_argument,	NULL,	_O_PWM_LOW},
-	{"pwm-high",		required_argument,	NULL,	_O_PWM_HIGH},
+	{"pwm-low",			required_argument,	NULL,	_O_PWM_LOW}, // deprecated, not used, left for compatibility
+	{"pwm-high",		required_argument,	NULL,	_O_PWM_HIGH}, // deprecated, not used, left for compatibility
+	{"pwm-min-duty",	required_argument,	NULL,	_O_PWM_MIN_DUTY},
 	{"pwm-soft",		required_argument,	NULL,	_O_PWM_SOFT},
 	{"hall-pin",		required_argument,	NULL,	_O_HALL_PIN},
 	{"hall-bias",		required_argument,	NULL,	_O_HALL_BIAS},
@@ -125,11 +127,16 @@ static fan_s *_g_fan = NULL;
 static server_s *_g_server = NULL;
 
 static int _g_pwm_pin = 12;
-static int _g_pwm_low = 0;
-static int _g_pwm_high = 1024;
+// Operation below 20% PWM duty-cycle is not officially supported in the Intel specification (undefined behavior).
+// However, most of the modern fans can be operated at below 20% and will stop at 0% duty-cycle.
+static float _g_pwm_min_duty = 20;
 static int _g_pwm_soft = 0;
 static int _g_hall_pin = -1;
-static fan_bias_e _g_hall_bias = FAN_BIAS_DISABLED;
+// Most of the fans are using open collector output for tachometer output signal, so the default mode should use pull-up
+// See Noctua spec, for example: https://noctua.at/pub/media/wysiwyg/Noctua_PWM_specifications_white_paper.pdf
+static fan_bias_e _g_hall_bias = FAN_BIAS_PULL_UP;
+static int _depr_pwm_low = 0;
+static int _depr_pwm_high = 1024;
 
 static float _g_temp_hyst = 3;
 static float _g_temp_low = 45;
@@ -180,9 +187,10 @@ int main(int argc, char *argv[]) {
 	for (int ch; (ch = getopt_long(argc, argv, _SHORT_OPTS, _LONG_OPTS, NULL)) >= 0;) {
 		switch (ch) {
 			case _O_PWM_PIN:		OPT_NUMBER("--pwm-pin",			_g_pwm_pin,			0, 256);
-			case _O_PWM_LOW:		OPT_NUMBER("--pwm-low",			_g_pwm_low,			0, 1024);
-			case _O_PWM_HIGH:		OPT_NUMBER("--pwm-high",		_g_pwm_high,		1, 1024);
-			case _O_PWM_SOFT:		OPT_NUMBER("--pwm-soft",		_g_pwm_soft,		50, 100);
+			case _O_PWM_LOW:		OPT_NUMBER("--pwm-low",			_depr_pwm_low,		0, 1024); // deprecated, not used
+			case _O_PWM_HIGH:		OPT_NUMBER("--pwm-high",		_depr_pwm_high,		1, 1024); // deprecated, not used
+			case _O_PWM_MIN_DUTY:	OPT_NUMBER("--pwm-min-duty",	_g_pwm_min_duty,	0, 50);
+			case _O_PWM_SOFT:		OPT_NUMBER("--pwm-soft",		_g_pwm_soft,		0, 1024);
 			case _O_HALL_PIN:		OPT_NUMBER("--hall-pin",		_g_hall_pin,		-1, 256);
 			case _O_HALL_BIAS:		OPT_NUMBER("--hall-bias",		_g_hall_bias,		FAN_BIAS_DISABLED, FAN_BIAS_PULL_UP);
 
@@ -219,11 +227,6 @@ int main(int argc, char *argv[]) {
 #	undef OPT_NUMBER
 #	undef OPT_NUMBER_BASE
 
-	if (_g_pwm_low >= _g_pwm_high) {
-		puts("Invalid PWM config, chould be: low < high");
-		goto error;
-	}
-
 	if (!(
 		0 <= _g_temp_hyst
 		&& _g_temp_hyst < _g_temp_low
@@ -247,7 +250,7 @@ int main(int argc, char *argv[]) {
 
 	_install_signal_handlers();
 
-	if ((_g_fan = fan_init(_g_pwm_pin, _g_pwm_low, _g_pwm_high, _g_pwm_soft, _g_hall_pin, _g_hall_bias)) == NULL) {
+	if ((_g_fan = fan_init(_g_pwm_pin, _g_pwm_min_duty, _g_pwm_soft, _g_hall_pin, _g_hall_bias)) == NULL) {
 		goto error;
 	}
 
@@ -307,9 +310,8 @@ static int _load_ini(const char *path) {
 		}
 
 	MATCH("main",		"pwm_pin",		_g_pwm_pin,			0, 256,		0)
-	MATCH("main",		"pwm_low",		_g_pwm_low,			0, 1024,	0)
-	MATCH("main",		"pwm_high",		_g_pwm_high,		1, 1024,	0)
-	MATCH("main",		"pwm_soft",		_g_pwm_soft,		50, 100,	0)
+	MATCH("main",		"pwm_min_duty",	_g_pwm_min_duty,	0, 50,		0)
+	MATCH("main",		"pwm_soft",		_g_pwm_soft,		0, 1024,	0)
 	MATCH("main",		"hall_pin",		_g_hall_pin,		-1, 256,	0)
 	MATCH("main",		"hall_bias",	_g_hall_bias,		FAN_BIAS_DISABLED, FAN_BIAS_PULL_UP, 0);
 	MATCH("main",		"interval",		_g_interval,		1, 10,		0)
@@ -483,9 +485,8 @@ static void _help(void) {
 	SAY("Hardware options:");
 	SAY("═════════════════");
 	SAY("    --pwm-pin <N>  ─── GPIO pin for PWM. Default: %d.\n", _g_pwm_pin);
-	SAY("    --pwm-low <N>  ─── PWM low level. Default: %d.\n", _g_pwm_low);
-	SAY("    --pwm-high <N>  ── PWM high level. Default: %d.\n", _g_pwm_high);
-	SAY("    --pwm-soft <N>  ── Use software PWM with specified range 0...N. Default: disabled.\n");
+	SAY("    --pwm-min-duty <N>  ─── Min duty cycle for PWM (0..50%%). Default: %.2f%%.\n", _g_pwm_min_duty);
+	SAY("    --pwm-soft <N>  ── Use software PWM with specified range 0...N. Default: 0 (disabled).\n");
 	SAY("    --hall-pin <N>  ── GPIO pin for the Hall sensor. Default: disabled.\n");
 	SAY("    --hall-bias <N>  ─ Hall pin bias: 0 = disabled, 1 = pull-down, 2 = pull-up. Default: %d.\n", _g_hall_bias);
 	SAY("Fan control options:");

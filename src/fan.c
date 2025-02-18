@@ -26,31 +26,57 @@
 static void *_hall_thread(void *v_fan);
 
 
-fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned pwm_soft, int hall_pin, fan_bias_e hall_bias) {
-	assert(pwm_low < pwm_high);
-	assert(pwm_high <= 1024);
+fan_s *fan_init(unsigned pwm_pin, float pwm_min_duty, unsigned pwm_soft, int hall_pin, fan_bias_e hall_bias) {
+	assert(pwm_min_duty >= 0);
+	assert(pwm_min_duty < 100);
+	assert(pwm_soft <= 1024);
 
 	fan_s *fan;
 	A_CALLOC(fan, 1);
 	fan->pwm_pin = pwm_pin;
-	fan->pwm_low = pwm_low;
-	fan->pwm_high = pwm_high;
+
+	// Operation below 20% PWM duty-cycle is not officially supported in the Intel specification
+	// (undefined behaviour). However, most Noctua PWM fans can be operated at below 20%
+	// and will stop at 0% duty-cycle.
+	// Calculated from the actual PWM range: pwm_low = pwm_min_duty/100 * pwm_high;
+	fan->pwm_low = 0;
 	fan->pwm_soft = pwm_soft;
 
-	LOG_INFO("fan.pwm", "Using pin=%u for PWM range %u...%u", pwm_pin, pwm_low, pwm_high);
 #	ifndef WITH_WIRINGPI_STUB
 	wiringPiSetupGpio();
 	if (pwm_soft) {
-		softPwmCreate(pwm_pin, 0, pwm_soft);
+		LOG_INFO("fan.pwm", "Using software PWM");
+		fan->pwm_high = pwm_soft;
+		fan->pwm_low = (int) (pwm_min_duty/100.0 * fan->pwm_high);
+		softPwmCreate(pwm_pin, fan->pwm_low, fan->pwm_high);
 	} else {
 		pinMode(pwm_pin, PWM_OUTPUT);
+		// PWM mark-space encoding mode is required (aka MSEN=1 sub-mode in BCM2835/2711 peripherials terminology).
+		//   At least according to Noctua PWM specification: https://noctua.at/pub/media/wysiwyg/Noctua_PWM_specifications_white_paper.pdf
+		//   Which is based on the Intel PWM fan specs: https://www.intel.com/content/dam/support/us/en/documents/intel-nuc/intel-4wire-pwm-fans-specs.pdf
+		pwmSetMode(PWM_MODE_MS);
+		// Target frequency: 25kHz, acceptable range 21kHz to 28kHz. 1/25000 = 40 microseconds.
+		// Set clock divider to 6 (1/6 of the Pi3's 19.2 MHz oscillator) = 3.2 MHz
+		// Note: Pi4 (BCM2711) uses different oscillator (54 MHz) and WiringPi handles it with additional weird integer math:
+		// divisor = (540*divisor/192) & 4095;
+		// https://github.com/WiringPi/WiringPi/blob/8960cc91b911db8ec0c272781edf34b8aedb60d9/wiringPi/wiringPi.c#L1367
+		// So 2 will become 5 for Pi4, 6 will become 16 and so on:
+		pwmSetClock(6);
+		// 19200000/6/25000 = 128
+		// 54000000/16/25000 = 135 - good enough value for both Pi3 and Pi4
+		fan->pwm_high = 135;
+		pwmSetRange(fan->pwm_high);
+
+		fan->pwm_low = (int) (pwm_min_duty/100.0 * fan->pwm_high);
 	}
 #	endif
+
+	LOG_INFO("fan.pwm", "Using pin=%u for PWM range %u...%u", fan->pwm_pin, fan->pwm_low, fan->pwm_high);
 
 	atomic_init(&fan->stop, true);
 	atomic_init(&fan->rpm, 0);
 	if (hall_pin >= 0) {
-		LOG_INFO("fan.hall", "Using pin=%d for the Hall sensor", hall_pin);
+		LOG_INFO("fan.hall", "Using pin=%d for the Hall sensor, bias=%d", hall_pin, hall_bias);
 
 #		ifdef HAVE_GPIOD2
 		struct gpiod_chip *chip;
@@ -65,8 +91,8 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned 
 		assert(!gpiod_line_settings_set_edge_detection(line_settings, GPIOD_LINE_EDGE_FALLING));
 		assert(!gpiod_line_settings_set_bias(line_settings,
 			hall_bias == FAN_BIAS_PULL_DOWN ? GPIOD_LINE_BIAS_PULL_DOWN
-			: hall_bias == FAN_BIAS_PULL_UP ? GPIOD_LINE_BIAS_PULL_UP
-			: GPIOD_LINE_BIAS_DISABLED
+			: hall_bias == FAN_BIAS_DISABLED ? GPIOD_LINE_BIAS_DISABLED
+			: GPIOD_LINE_BIAS_PULL_UP
 		));
 
 		struct gpiod_line_config *line_config;
@@ -102,10 +128,11 @@ fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned 
 			goto error;
 		}
 		int flags;
+		// It is safer to assume tacho signal requires to be pulled-up than leave the dangling wire
 		switch (hall_bias) {
 			case FAN_BIAS_PULL_DOWN: flags = GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_DOWN; break;
-			case FAN_BIAS_PULL_UP: flags = GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_UP; break;
-			default: flags = GPIOD_LINE_REQUEST_FLAG_BIAS_DISABLE;
+			case FAN_BIAS_DISABLED: flags = GPIOD_LINE_REQUEST_FLAG_BIAS_DISABLE; break;
+			default: flags = GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_UP;
 		}
 		if (gpiod_line_request_falling_edge_events_flags(fan->line, "kvmd-fan::hall", flags) < 0) {
 			LOG_PERROR("fan.hall", "Can't request GPIO notification");
@@ -144,17 +171,10 @@ void fan_destroy(fan_s *fan) {
 }
 
 unsigned fan_set_speed_percent(fan_s *fan, float speed) {
-	unsigned pwm;
-	if (speed == 0) {
-		pwm = 0;
-	} else if (speed == 100) {
-		pwm = 1024;
-	} else {
-		pwm = roundf(remap(speed, 0, 100, fan->pwm_low, fan->pwm_high));
-	}
+	unsigned pwm = (int) roundf(remap(speed, 0, 100, fan->pwm_low, fan->pwm_high));
 #	ifndef WITH_WIRINGPI_STUB
 	if (fan->pwm_soft) {
-		softPwmWrite(fan->pwm_pin, pwm / 1024.0 * fan->pwm_soft);
+		softPwmWrite(fan->pwm_pin, pwm);
 	} else {
 		pwmWrite(fan->pwm_pin, pwm);
 	}

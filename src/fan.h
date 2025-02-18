@@ -67,7 +67,7 @@ typedef struct {
 } fan_s;
 
 
-fan_s *fan_init(unsigned pwm_pin, unsigned pwm_low, unsigned pwm_high, unsigned pwm_soft, int hall_pin, fan_bias_e hall_bias);
+fan_s *fan_init(unsigned pwm_pin, float pwm_min_duty, unsigned pwm_soft, int hall_pin, fan_bias_e hall_bias);
 void fan_destroy(fan_s *fan);
 
 unsigned fan_set_speed_percent(fan_s *fan, float speed);
